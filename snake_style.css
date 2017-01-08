@@ -1,0 +1,24 @@
+div#sidenav {
+    height: 100%;
+    width: 150px;
+    position: fixed;
+    background-color: black;
+    top: 0px;
+    left: 0px;
+}
+
+div#sidenav p{
+    font-size: 25px;
+    font-family: arial;
+    color: grey;
+    padding: 8px 20px;
+}
+
+div#wrapper {
+    text-align: center;
+    padding-left: 100px;
+}
+
+canvas#backgroundCanvas {
+    background-color: white;
+}
