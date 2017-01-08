@@ -1,3 +1,22 @@
+/*TODO:
+    configure snake spawn so snake will have perfect alignment with edges
+    configure food spawn so food will have perfect alignment with edges
+    configure food spawn so it will not spawn on snake
+    Remove ability to go backwards
+    Add death/gameover when snake hits itself
+    Add death/gameover when snake hits wall
+    Add death screen -> score, who wins
+    Start button
+    increase snake length when it eats food
+    remove food when eaten by snake
+    respawn food when eaten by snake
+    snake ai
+    option to choose number of players
+    option to choose whether player is ai or human
+    limit human players to max of 2
+    Score board
+    */
+
 var canvas = document.getElementById("backgroundCanvas");
 canvas.width = 750;
 canvas.height = 500;
@@ -38,13 +57,15 @@ var foodModule = (function(canvas, snakeModule){
                 var food = new Food();
                 food_arr.push(food);
             }
+        },
 
-            drawAllFood(ctx);
+        drawFood: function(context){
+            drawAllFood(context);
         },
     }
 })(canvas, snakeModule);
 
-var snakeModule = (function(canvas) {
+var snakeModule = (function(canvas, foodModule) {
 
     var snake_arr = []; //array of snakes
     var colour = [ "#53F527", "#9821F0", "#21F0EA", "#F0ED21", "#FF6F50" ]
@@ -53,7 +74,7 @@ var snakeModule = (function(canvas) {
         var head = {
             posx: Math.random()*(canvas.width-2*50) + 50,
             posy: Math.random()*(canvas.height-2*50) + 50,
-            dir: 0,
+            dir: [ 0, 1 ],
         };
 
         return head;
@@ -76,15 +97,44 @@ var snakeModule = (function(canvas) {
             context.fill();
         }
         return;
+    };
+
+    function snakeController(snake){
+        
+        canvas.addEventListener('keydown', function(event) {
+            switch (event.keyCode){
+                case 37: //left key
+                    snake.body[0].dir = [ -1, 0 ];
+                    break;
+                case 38: //up key
+                    snake.body[0].dir = [ 0, -1 ];  
+                    break;
+                case 39: //right key
+                    snake.body[0].dir = [ 1, 0 ];
+                    break;
+                case 40: //down key
+                    snake.body[0].dir = [ 0, 1 ];
+                    break;
+                default:
+                    break;
+            }
+        });
+        return;
     }
 
-    function calcPos(){
-        for (i = 0; i < snake_arr.length; i++){
-            for (j = 0; j < snake_arr[i].body.length; j++){
-                
-            }
+    function moveSnake(snake){
+        snakeController(snake);
+
+        var head = {
+            dir: snake.body[0].dir,
+            posx: snake.body[0].posx + (2 * snake.size * snake.body[0].dir[0]),
+            posy: snake.body[0].posy + (2 * snake.size * snake.body[0].dir[1]),
         }
-    }
+
+        snake.body.unshift(head);
+        snake.body.pop();
+        return;
+    };
 
     function drawFrame(context){
         context.fillStyle = "#000000";
@@ -111,16 +161,33 @@ var snakeModule = (function(canvas) {
                 snake_arr.push(snake);
             }
 
-            drawFrame(context);
+            var times = 0;
+            var repeat = setInterval( function() {
+                drawFrame(context);
+
+                for (var i = 0; i < num_snakes; i++){
+                    foodModule.drawFood(context);
+                    moveSnake(snake_arr[i]);
+                }
+
+                times += 1;
+                if (times > 100){
+                    clearInterval(repeat);
+                }
+
+            }, 1000/15);
         },
 
         numSnake: function(){
             return getNumSnake();
         }
     };
-})(canvas);
+})(canvas, foodModule);
 
-var num_snake = 1;
+window.onload = function(){
+    var num_snake = 1;
 
-snakeModule.init(num_snake);
-foodModule.init(num_snake);
+    foodModule.init(num_snake);
+    snakeModule.init(num_snake);
+};
+
