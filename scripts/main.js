@@ -1,15 +1,15 @@
 /*TODO:
     Eliminate possibility of food spawning on each other
     Remove ability to go backwards into self
-    Add death/gameover when snake hits itself
     Add death/gameover when snake hits wall
-    Add death screen -> score, who wins
-    Start button
     snake ai
     option to choose number of players
     option to choose whether player is ai or human
     limit human players to max of 2
     Score board
+    Game module: Death of snake -> leaves body as obstacle -> game over when no snake is alive anymore -> Option to restart
+                Death screen w/ who wins and score  
+                Start screen
     */
 
 var canvas = document.getElementById("backgroundCanvas");
@@ -95,6 +95,7 @@ var snakeModule = (function(canvas, foodModule) {
     }
 
     function Snake(num) {
+        this.isAlive = true;
         this.isAI = false;
         this.colour = colour[num];
         this.length = 1;
@@ -121,6 +122,33 @@ var snakeModule = (function(canvas, foodModule) {
 })(canvas, foodModule);
 
 var actionModule = (function(canvas, foodModule, snakeModule){ //to do with movement and growth of snake
+    function hitWall(snake){
+        if (snake.body[0].posx < 0 || snake.body[0].posx > canvas.width ||
+            snake.body[0].posy < 0 || snake.body[0].posy > canvas.height){
+            snake.isAlive = false;
+        }   
+        return;
+    }
+
+    function anyHitSnake(snake_arr){
+        for (i = 0; i < snake_arr.length; i++){
+            for (j = 0; j < snake_arr.length; j++){
+                for (k = 1; k < snake_arr[j].body.length; k++){
+                    if (snake_arr[i].body[0].posx == snake_arr[j].body[k].posx && snake_arr[i].body[0].posy == snake_arr[j].body[k].posy){
+                        snake_arr[i].isAlive = false;
+                        break;
+                    }
+                }
+
+                if (!snake_arr[i].isAlive) {
+                    continue;
+                }
+            }
+        }
+        return;
+    }
+
+
     function isOverlap(food, snake_arr, food_arr){
         for (i = 0; i<snake_arr.length; i++){
             for (j = 0; j<snake_arr[i].body.length; j++){
@@ -160,16 +188,18 @@ var actionModule = (function(canvas, foodModule, snakeModule){ //to do with move
     }
 
     function moveSnake(snake){
-        snakeController(snake);
+        if (snake.isAlive){
+            snakeController(snake);
 
-        var head = {
-            dir: snake.body[0].dir,
-            posx: snake.body[0].posx + (2 * snake.size * snake.body[0].dir[0]),
-            posy: snake.body[0].posy + (2 * snake.size * snake.body[0].dir[1]),
+            var head = {
+                dir: snake.body[0].dir,
+                posx: snake.body[0].posx + (2 * snake.size * snake.body[0].dir[0]),
+                posy: snake.body[0].posy + (2 * snake.size * snake.body[0].dir[1]),
+            }
+
+            snake.body.unshift(head);
+            snake.body.pop();
         }
-
-        snake.body.unshift(head);
-        snake.body.pop();
         return;
     };
 
@@ -188,6 +218,12 @@ var actionModule = (function(canvas, foodModule, snakeModule){ //to do with move
 
     return {
         calcAction: function(snake_arr, food_arr){
+            anyHitSnake(snake_arr);
+            for (i = 0; i<snake_arr.length; i++){
+                hitWall(snake_arr[i]);
+                //snakeModule.updateSnake(snake_arr[i], i);
+            }
+
             for(i = 0; i<snake_arr.length; i++){
                 for (j = 0; j<food_arr.length; j++){
                     if (snake_arr[i].body[0].posx == food_arr[j].posx && snake_arr[i].body[0].posy == food_arr[j].posy){
@@ -249,6 +285,9 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
             if (canvas.getContext)
                 var ctx = canvas.getContext('2d');
             else return;
+
+            var isOver
+
             var times = 0;
             var repeat = setInterval( function() {
                 var food_arr = foodModule.getFoodArr();
