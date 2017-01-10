@@ -12,7 +12,7 @@
     */
 /*BUG:
     it takes a frame to eat and grow the tail right now. want to take no frames. (maybe make it a feature?)
-    Colour of death screen: wtf?
+    Snake and circle can go off frame
     */
 
 var canvas = document.getElementById("backgroundCanvas");
