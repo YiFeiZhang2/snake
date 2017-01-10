@@ -8,8 +8,7 @@
     limit human players to max of 2
     Score board
     Game module: Death of snake -> leaves body as obstacle -> game over when no snake is alive anymore -> Option to restart
-                Death screen w/ who wins and score  
-                Start screen
+                Death screen w/ who wins and score
     */
 
 var canvas = document.getElementById("backgroundCanvas");
@@ -24,7 +23,7 @@ var foodModule = (function(canvas, snakeModule){
         var num_gridy = Math.floor(canvas.height/(2*7.5));
 
         this.colour = "#ffffff";
-        this.size = 3;
+        this.size = 5;
         this.posx = Math.floor(Math.random() * num_gridx) * (2 * 7.5);
         this.posy = Math.floor(Math.random() * num_gridy) * (2 * 7.5); //link 7.5 to snake.size from snakeModule
     };
@@ -270,49 +269,87 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
         context.fillStyle = "#000000";
         context.fillRect(0, 0, canvas.width, canvas.height);
 
-        for (i = 0; i < snake_arr.length; i++){
-            drawSnake(snake_arr[i], context);
-        }
-
         for (i = 0; i<food_arr.length; i++){
             drawFood(food_arr[i], context);
         }
+
+        for (i = 0; i < snake_arr.length; i++){
+            drawSnake(snake_arr[i], context);
+        }
+        
+        return;
+    };
+
+        function drawInit(){
+        if (canvas.getContext)
+            var ctx = canvas.getContext('2d');
+        else return;
+
+        ctx.fillStyle = "#0000000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "50px Arial";
+        var txt = "Click to begin!"
+        ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, canvas.height/2);
         return;
     };
     
     return {
-        init: function() {
+
+        drawStartScreen: function(){
+            drawInit();
+        },
+
+        draw: function() {
             if (canvas.getContext)
                 var ctx = canvas.getContext('2d');
             else return;
 
-            var isOver
+            var food_arr = foodModule.getFoodArr();
+            var snake_arr = snakeModule.getSnakeArr();
 
-            var times = 0;
-            var repeat = setInterval( function() {
-                var food_arr = foodModule.getFoodArr();
-                var snake_arr = snakeModule.getSnakeArr();
+            drawFrame(ctx, food_arr, snake_arr);
+            actionModule.calcAction(snake_arr, food_arr);
 
-                drawFrame(ctx, food_arr, snake_arr);
-
-                actionModule.calcAction(snake_arr, food_arr);
-
-                times += 1;
-                if (times > 10000){
-                    clearInterval(repeat);
-                }
-            }, 1000/15);
+            return; /////******* */
         }
     }
 })(canvas, foodModule, snakeModule, actionModule);
 
+var gameModule = (function(canvas, foodModule, snakeModule, actionModule){
+
+    var start = false;
+
+    function startStop(){
+        canvas.addEventListener('click', function(event){
+            start = !start;
+        });
+        return;
+    };
+    
+    return{
+        init: function(num_snake, num_food){
+            drawModule.drawStartScreen();
+            snakeModule.init(num_snake);
+            foodModule.init(num_food);
+            
+            canvas.addEventListener("click", function(event){
+                if (canvas.interval){
+                    clearInterval(canvas.interval);
+                    canvas.interval = null;
+                } else {
+                    canvas.interval = setInterval(function(){
+                        drawModule.draw();
+                    }, 1000/10);
+                }
+            });
+        },
+    }
+
+})(canvas, foodModule, snakeModule, actionModule);
+
 window.onload = function(){
-    var num_snake = 1;
-    var num_food = 10;
-
-    snakeModule.init(num_snake);
-    foodModule.init(num_food);
-
-    drawModule.init();
+    gameModule.init(1, 10);
 };
 
