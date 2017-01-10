@@ -1,7 +1,6 @@
 /*TODO:
     Eliminate possibility of food spawning on each other
     Remove ability to go backwards into self
-    Add death/gameover when snake hits wall
     snake ai
     option to choose number of players
     option to choose whether player is ai or human
@@ -9,6 +8,11 @@
     Score board
     Game module: Death of snake -> leaves body as obstacle -> game over when no snake is alive anymore -> Option to restart
                 Death screen w/ who wins and score
+                pause screen
+    */
+/*BUG:
+    it takes a frame to eat and grow the tail right now. want to take no frames. (maybe make it a feature?)
+    Colour of death screen: wtf?
     */
 
 var canvas = document.getElementById("backgroundCanvas");
@@ -280,7 +284,7 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
         return;
     };
 
-        function drawInit(){
+    function drawInit(){
         if (canvas.getContext)
             var ctx = canvas.getContext('2d');
         else return;
@@ -294,8 +298,26 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
         ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, canvas.height/2);
         return;
     };
+
+    function drawEnd(){
+        if (canvas.getContext)
+            var ctx = canvas.getContext('2d');
+        else return;
+
+        ctx.fillStyle = "#0000000"; //why doesn't this change the colour?
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "50px Arial";
+        var txt = "Game Over!"
+        ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, canvas.height/2);
+        return;
+    }
     
     return {
+        drawEndScreen: function(){
+            drawEnd();
+        },
 
         drawStartScreen: function(){
             drawInit();
@@ -319,15 +341,18 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
 
 var gameModule = (function(canvas, foodModule, snakeModule, actionModule){
 
-    var start = false;
+    function numLiving(){
+        var snake_arr = snakeModule.getSnakeArr();
 
-    function startStop(){
-        canvas.addEventListener('click', function(event){
-            start = !start;
-        });
-        return;
-    };
-    
+        var num_alive = 0;
+        for (i = 0; i<snake_arr.length; i++){
+            if (snake_arr[0].isAlive)
+                num_alive += 1;
+        }
+
+        return num_alive;
+    }
+
     return{
         init: function(num_snake, num_food){
             drawModule.drawStartScreen();
@@ -341,7 +366,10 @@ var gameModule = (function(canvas, foodModule, snakeModule, actionModule){
                 } else {
                     canvas.interval = setInterval(function(){
                         drawModule.draw();
-                    }, 1000/10);
+                        if (numLiving() == 0){
+                            drawModule.drawEndScreen();
+                        }
+                    }, 1000/15);
                 }
             });
         },
