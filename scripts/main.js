@@ -250,21 +250,25 @@ var actionModule = (function(canvas, foodModule, snakeModule){ //to do with move
 
 var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to do with drawing frame
     function drawFood(food, context){
+        context.save();
         context.fillStyle = food.colour;
         context.beginPath();
         context.arc(food.posx, food.posy, food.size, 0, 2*Math.PI);
         context.closePath();
         context.fill();
+        context.restore();
         return;
     };
 
     function drawSnake(snake, context){
         for (j = 0; j < snake.body.length; j++){
+            context.save();
             context.fillStyle = snake.colour;
             context.beginPath();
             context.arc(snake.body[j].posx, snake.body[j].posy, snake.size, 0, 2*Math.PI);
             context.closePath();
             context.fill();
+            context.restore();
         }
         return;
     };
@@ -288,7 +292,7 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
         if (canvas.getContext)
             var ctx = canvas.getContext('2d');
         else return;
-
+        ctx.save();
         ctx.fillStyle = "#0000000";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -296,6 +300,7 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
         ctx.font = "50px Arial";
         var txt = "Click to begin!"
         ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, canvas.height/2);
+        ctx.restore();
         return;
     };
 
@@ -303,7 +308,7 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
         if (canvas.getContext)
             var ctx = canvas.getContext('2d');
         else return;
-
+        ctx.save();
         ctx.fillStyle = "#0000000"; //why doesn't this change the colour?
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -311,6 +316,7 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
         ctx.font = "50px Arial";
         var txt = "Game Over!"
         ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, canvas.height/2);
+        ctx.restore();
         return;
     }
     
