@@ -11,8 +11,11 @@
                 pause screen
     */
 /*BUG:
-    it takes a frame to eat and grow the tail right now. want to take no frames. (maybe make it a feature?)
-    Snake and circle can go off frame
+    Score screen flickers
+    AI may kill itself
+    Screen draws AI for one frame after everyone is dead (shows death screen in between)
+    AI sometimes chooses odd targets for food
+    Cannot kill oneself on another snake of size 1?
     */
 
 var canvas = document.getElementById("backgroundCanvas");
@@ -106,17 +109,13 @@ var snakeModule = (function(canvas, foodModule) {
         this.body = [ generateHead(this.size) ];
     }
 
-/*
-    function aiMovement(num){ //returns either (0,1) (1,0) (-1,0) (0,-1) but looks num nodes down via A*
-
-
-    }
-    */
-
     return {
         init: function(num_snakes){
             for (var i = 0; i < num_snakes; i++){
                 var snake = new Snake(i);
+                if (i > 0){
+                    snake.isAI = true;
+                }
                 snake_arr.push(snake);
             }
         },
@@ -199,8 +198,10 @@ var actionModule = (function(canvas, foodModule, snakeModule){ //to do with move
 
     function moveSnake(snake){
         if (snake.isAlive){
-            snakeController(snake);
-
+            if (!snake.isAI){
+                snakeController(snake);
+            }
+            
             var head = {
                 dir: snake.body[0].dir,
                 posx: snake.body[0].posx + (2 * snake.size * snake.body[0].dir[0]),
@@ -231,14 +232,13 @@ var actionModule = (function(canvas, foodModule, snakeModule){ //to do with move
             anyHitSnake(snake_arr);
             for (i = 0; i<snake_arr.length; i++){
                 hitWall(snake_arr[i]);
-                //snakeModule.updateSnake(snake_arr[i], i);
             }
 
             for(i = 0; i<snake_arr.length; i++){
                 for (j = 0; j<food_arr.length; j++){
                     if (snake_arr[i].body[0].posx == food_arr[j].posx && snake_arr[i].body[0].posy == food_arr[j].posy){
                         growSnake(snake_arr[i]);
-                        snakeModule.updateSnake(snake_arr[i], i)
+                        //snakeModule.updateSnake(snake_arr[i], i)
                         
                         foodModule.remFood(j);
                         var new_food = foodModule.createFood();
@@ -254,6 +254,83 @@ var actionModule = (function(canvas, foodModule, snakeModule){ //to do with move
         }
     }
 })(canvas, foodModule, snakeModule);
+
+var aiModule = (function(canvas, foodModule, snakeModule, actionModule){
+    function closestFood(snake, food_arr){
+        var min = canvas.width + canvas.height;
+        var ind = 0;
+        for (i = 0; i < food_arr.length; i++){
+            var dist = Math.pow(snake.body[0].posy-food_arr[i].posy, 2) + Math.pow(snake.body[0].posy-food_arr[i].posy, 2);
+            if (dist < min) {
+                min = dist;
+                ind = i;
+            }
+        }
+        return ind;
+    }
+    
+    //returns either [0,1] [1,0] [-1,0] [0,-1] but looks num nodes down via A*
+    //dist is the distance to food
+    //the snake movement is acting on a separate snake than the one in snakeModule snake_arr
+    function calcMovement(num, posx, posy, food, dir) {
+        //7.5 is from snake.size
+        var new_posx = posx + dir[0]*7.5;
+        var new_posy = posy + dir[1]*7.5;
+
+        if (num == 0){
+            return Math.pow(new_posx - food.posx, 2) + Math.pow(new_posy - food.posy, 2);
+        } else if (Math.pow(new_posx - food.posx, 2) + Math.pow(new_posy - food.posy, 2) == 0){
+            return 0;
+        } else {
+            var up_dist = calcMovement(num-1, new_posx, new_posy, food, [0,1]);
+            var down_dist = calcMovement(num-1, new_posx, new_posy, food, [0,-1]);
+            var left_dist = calcMovement(num-1, new_posx, new_posy, food, [-1,0]);
+            var right_dist = calcMovement(num-1, new_posx, new_posy, food, [1,0]);
+            return Math.min(...[up_dist, down_dist, left_dist, right_dist]);
+        }
+    } 
+
+    function aiMovement(num){
+        var snake_arr = snakeModule.getSnakeArr();
+        var food_arr = foodModule.getFoodArr(); 
+
+        for (i = 0; i<snake_arr.length; i++){
+            var snake = snake_arr[i];
+            if (snake.isAlive && snake.isAI){
+                var cfood_ind = closestFood(snake, food_arr)
+                //uses x and y coordinates to not change the snake reference in snake_arr
+                var up_dist = calcMovement(num-1, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [0,1]);
+                var down_dist = calcMovement(num-1, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [0,-1]);
+                var left_dist = calcMovement(num-1, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [-1,0]);
+                var right_dist = calcMovement(num-1, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [1,0]);
+
+                var min_dist = Math.min(...[up_dist, down_dist, left_dist, right_dist]);
+
+                if (min_dist == up_dist){
+                    snake.body[0].dir = [0,1];
+                    //alert(0);
+                } else if (min_dist == down_dist){
+                    snake.body[0].dir = [0,-1];
+                    //alert(2);
+                } else if (min_dist == left_dist){
+                    snake.body[0].dir = [-1,0];
+                    //alert(3);
+                } else if (min_dist == right_dist){
+                    snake.body[0].dir = [1,0];
+                    //alert(1);
+                }
+            }
+        }
+        return;
+    };
+
+    return {
+        calcAIMovement: function (num){
+            aiMovement(num);
+            return;
+        }
+    }
+}(canvas, foodModule, snakeModule, actionModule));
 
 var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to do with drawing frame
     function drawFood(food, context){
@@ -345,6 +422,7 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
             var snake_arr = snakeModule.getSnakeArr();
 
             drawFrame(ctx, food_arr, snake_arr);
+            aiModule.calcAIMovement(3);
             actionModule.calcAction(snake_arr, food_arr);
 
             return; /////******* */
@@ -411,6 +489,6 @@ var gameModule = (function(canvas, foodModule, snakeModule, actionModule){
 })(canvas, foodModule, snakeModule, actionModule);
 
 window.onload = function(){
-    gameModule.init(1, 10);
+    gameModule.init(2, 10);
 };
 
