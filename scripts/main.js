@@ -106,6 +106,13 @@ var snakeModule = (function(canvas, foodModule) {
         this.body = [ generateHead(this.size) ];
     }
 
+/*
+    function aiMovement(num){ //returns either (0,1) (1,0) (-1,0) (0,-1) but looks num nodes down via A*
+
+
+    }
+    */
+
     return {
         init: function(num_snakes){
             for (var i = 0; i < num_snakes; i++){
@@ -359,6 +366,25 @@ var gameModule = (function(canvas, foodModule, snakeModule, actionModule){
         return num_alive;
     }
 
+    function printScore(){
+        var snake_arr = snakeModule.getSnakeArr();
+
+        var ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "20px Arial";
+        ctx.fillText("Score", canvas.width-100, canvas.height - 120);
+        ctx.font = "10px Arial";
+
+        for (i = 0; i<snake_arr.length; i++){
+            var txt = "Player " + String(i) + ": " + String(snake_arr[i].body.length);
+            ctx.fillText(txt, canvas.width - 100, canvas.height - (100 - 15*(i)));
+        }
+        ctx.restore();
+
+        return;
+    };
+
     return{
         init: function(num_snake, num_food){
             drawModule.drawStartScreen();
@@ -372,6 +398,7 @@ var gameModule = (function(canvas, foodModule, snakeModule, actionModule){
                 } else {
                     canvas.interval = setInterval(function(){
                         drawModule.draw();
+                        printScore();
                         if (numLiving() == 0){
                             drawModule.drawEndScreen();
                         }
