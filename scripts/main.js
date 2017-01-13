@@ -28,8 +28,8 @@ var foodModule = (function(canvas, snakeModule){
 
         this.colour = "#ffffff";
         this.size = 5;
-        this.posx = Math.floor(Math.random() * num_gridx) * (2 * 7.5);
-        this.posy = Math.floor(Math.random() * num_gridy) * (2 * 7.5); //link 7.5 to snake.size from snakeModule
+        this.posx = Math.floor(Math.random() * num_gridx) * (2 * 7.5) + 7.5;
+        this.posy = Math.floor(Math.random() * num_gridy) * (2 * 7.5) + 7.5; //link 7.5 to snake.size from snakeModule
     };
 
     return {
@@ -74,8 +74,8 @@ var snakeModule = (function(canvas, foodModule) {
 
         while (overlap_food || overlap_snake){
             var head = {
-                posx: Math.floor(Math.random() * num_gridx) * (2*size),
-                posy: Math.floor(Math.random() * num_gridy) * (2*size),
+                posx: Math.floor(Math.random() * num_gridx) * (2*size) + 7.5,
+                posy: Math.floor(Math.random() * num_gridy) * (2*size) + 7.5,
                 dir: [ 0, 1 ],
             };
 
