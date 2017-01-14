@@ -1,7 +1,6 @@
 /*TODO:
     Eliminate possibility of food spawning on each other
     Remove ability to go backwards into self
-    snake ai
     option to choose number of players
     option to choose whether player is ai or human
     limit human players to max of 2
@@ -15,7 +14,7 @@
     AI may kill itself
     Screen draws AI for one frame after everyone is dead (shows death screen in between)
     AI sometimes chooses odd targets for food
-    Cannot kill oneself on another snake of size 1?
+    Cannot kill oneself on another snake of size 1
     */
 
 var canvas = document.getElementById("backgroundCanvas");
@@ -57,6 +56,10 @@ var foodModule = (function(canvas, snakeModule){
 
         getFoodArr: function(){
             return food_arr;
+        },
+
+        updateFood: function(food_arr){
+            this.food_arr = food_arr;
         }
     }
 })(canvas, snakeModule);
@@ -238,7 +241,7 @@ var actionModule = (function(canvas, foodModule, snakeModule){ //to do with move
                 for (j = 0; j<food_arr.length; j++){
                     if (snake_arr[i].body[0].posx == food_arr[j].posx && snake_arr[i].body[0].posy == food_arr[j].posy){
                         growSnake(snake_arr[i]);
-                        //snakeModule.updateSnake(snake_arr[i], i)
+                        //snakeModule.updateSnake(snake_arr[i], i);
                         
                         foodModule.remFood(j);
                         var new_food = foodModule.createFood();
@@ -246,6 +249,7 @@ var actionModule = (function(canvas, foodModule, snakeModule){ //to do with move
                             new_food = foodModule.createFood();
                         }
                         foodModule.addFood(new_food);
+                        
                     }
                 }
                 moveSnake(snake_arr[i]);
@@ -257,7 +261,7 @@ var actionModule = (function(canvas, foodModule, snakeModule){ //to do with move
 
 var aiModule = (function(canvas, foodModule, snakeModule, actionModule){
     function closestFood(snake, food_arr){
-        var min = canvas.width + canvas.height;
+        var min = Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2);
         var ind = 0;
         for (i = 0; i < food_arr.length; i++){
             var dist = Math.pow(snake.body[0].posy-food_arr[i].posy, 2) + Math.pow(snake.body[0].posy-food_arr[i].posy, 2);
@@ -272,21 +276,48 @@ var aiModule = (function(canvas, foodModule, snakeModule, actionModule){
     //returns either [0,1] [1,0] [-1,0] [0,-1] but looks num nodes down via A*
     //dist is the distance to food
     //the snake movement is acting on a separate snake than the one in snakeModule snake_arr
-    function calcMovement(num, posx, posy, food, dir) {
+    function calcMovement(num, snake_ind, posx, posy, food, dir) {
         //7.5 is from snake.size
         var new_posx = posx + dir[0]*7.5;
         var new_posy = posy + dir[1]*7.5;
+
+        //checks for wall collision
+        if (new_posx < 0 || new_posx > canvas.width ||
+            new_posy < 0 || new_posy > canvas.height){
+            alert("here tho");
+            alert(canvas.width);
+            
+            return (Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2) + 1);
+        }
+
+        //checks for snake collision
+        var snake_arr = snakeModule.getSnakeArr();
+        for (i = 0; i < snake_arr.length; i++){
+            if (i == snake_ind){
+                continue;
+            }
+            for (j = 0; j < snake_arr[i].body.length; j++){
+                if (new_posx == snake_arr[i].body[j].posx && new_posy == snake_arr[i].body[j].posy){
+                    alert("here tho");
+                    alert(canvas);
+                    alert(Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2) + 1);
+                    return (Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2) + 1);
+                }
+            }
+        }
+
+        var coord = [new_posx, new_posy];
 
         if (num == 0){
             return Math.pow(new_posx - food.posx, 2) + Math.pow(new_posy - food.posy, 2);
         } else if (Math.pow(new_posx - food.posx, 2) + Math.pow(new_posy - food.posy, 2) == 0){
             return 0;
         } else {
-            var up_dist = calcMovement(num-1, new_posx, new_posy, food, [0,1]);
-            var down_dist = calcMovement(num-1, new_posx, new_posy, food, [0,-1]);
-            var left_dist = calcMovement(num-1, new_posx, new_posy, food, [-1,0]);
-            var right_dist = calcMovement(num-1, new_posx, new_posy, food, [1,0]);
-            return Math.min(...[up_dist, down_dist, left_dist, right_dist]);
+            var up_dist = calcMovement(num-1, snake_ind, new_posx, new_posy, food, [0,1]);
+            var down_dist = calcMovement(num-1, snake_ind, new_posx, new_posy, food, [0,-1]);
+            var left_dist = calcMovement(num-1, snake_ind, new_posx, new_posy, food, [-1,0]);
+            var right_dist = calcMovement(num-1, snake_ind, new_posx, new_posy, food, [1,0]);
+            return Math.min(...[up_dist, down_dist, snake_ind, left_dist, right_dist]);
         }
     } 
 
@@ -295,14 +326,16 @@ var aiModule = (function(canvas, foodModule, snakeModule, actionModule){
         var food_arr = foodModule.getFoodArr(); 
 
         for (i = 0; i<snake_arr.length; i++){
-            var snake = snake_arr[i];
+            var snake_ind = i;
+            var snake = snake_arr[snake_ind];
+            
             if (snake.isAlive && snake.isAI){
-                var cfood_ind = closestFood(snake, food_arr)
+                var cfood_ind = closestFood(snake, food_arr);
                 //uses x and y coordinates to not change the snake reference in snake_arr
-                var up_dist = calcMovement(num-1, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [0,1]);
-                var down_dist = calcMovement(num-1, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [0,-1]);
-                var left_dist = calcMovement(num-1, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [-1,0]);
-                var right_dist = calcMovement(num-1, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [1,0]);
+                var up_dist = calcMovement(num-1, snake_ind, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [0,1]);
+                var down_dist = calcMovement(num-1, snake_ind, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [0,-1]);
+                var left_dist = calcMovement(num-1, snake_ind, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [-1,0]);
+                var right_dist = calcMovement(num-1, snake_ind, snake.body[0].posx, snake.body[0].posy, food_arr[cfood_ind], [1,0]);
 
                 var min_dist = Math.min(...[up_dist, down_dist, left_dist, right_dist]);
 
