@@ -2,20 +2,59 @@ var canvas = document.getElementById("backgroundCanvas");
 canvas.width = 750;
 canvas.height = 500;
 
-if (canvas.getContext)
+if (canvas.getContext){
     var ctx = canvas.getContext('2d');
+}
 
-// GameValues - superclass
-function GameValues () {
+// SnakeGame - superclass
+function SnakeGame (num_alive) {
+    this.num_alive = num_alive;
 }
 
 // spacing of the coordinates on the screen
-GameValues.prototype.unit_space = 7.5;
-GameValues.prototype.x_range = Math.floor(canvas.width / (2 * GameValues.prototype.unit_space));
-GameValues.prototype.y_range = Math.floor(canvas.height / (2 * GameValues.prototype.unit_space));
+SnakeGame.prototype.unit_space = 7.5;
+SnakeGame.prototype.x_range = Math.floor(canvas.width / (2 * SnakeGame.prototype.unit_space));
+SnakeGame.prototype.y_range = Math.floor(canvas.height / (2 * SnakeGame.prototype.unit_space));
 // colours of snakes
-GameValues.prototype.snake_colours = [ "#53F527", "#9821F0", "#21F0EA", "#F0ED21", "#FF6F50" ];
+SnakeGame.prototype.snake_colours = [ "#53F527", "#9821F0", "#21F0EA", "#F0ED21", "#FF6F50" ];
+// write start screen words
+SnakeGame.prototype.drawStartWords = function(){
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "50px Arial";
+        var txt = "Click to begin!"
+        ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, canvas.height/2);
+}
 
+SnakeGame.prototype.drawEndWords = function(){
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "50px Arial";
+        var txt = "Game Over!"
+        ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, canvas.height/2);
+}
+
+SnakeGame.prototype.hitObject = function(posx, posy, board, type = 'both'){
+    if (board.board_arr[posy][posx] == 0){
+        return false;
+    }
+
+    var hit = false;
+    switch (type) {
+        case 'snake':
+            hit = board.board_arr[posy][posx] == 2 ? true : false;
+            break;
+        case 'food':
+            hit = board.board_arr[posy][posx] == 1 ? true : false;
+            break;
+        case 'both':
+            hit = (board.board_arr[posy][posx] == 2 || board.board_arr[posy][posx] == 1) ? true: false;
+            break;
+        default:
+            alert("put in wrong value for a SnakeGame.prototype.hit function");
+            hit = (board.board_arr[posy][posx] == 2 || board.board_arr[posy][posx] == 1) ? true: false;
+            break;
+    }
+    return hit;
+}
 
 // Board - subclass
 // 0 in board_arr means empty, 1 means food, 2 means snake
@@ -30,8 +69,8 @@ function Board () {
     }
 }
 
-// set up Board so it inherits from GameValues
-Board.prototype = Object.create(GameValues.prototype);
+// set up Board so it inherits from SnakeGame
+Board.prototype = Object.create(SnakeGame.prototype);
 Board.prototype.constructor = Board;
 
 Board.prototype.draw = function() {
@@ -40,17 +79,24 @@ Board.prototype.draw = function() {
 };
 
 
-
 // Food - subclass
-function Food() {
+function Food(board) {
     this.colour = "#ffffff";
     this.size = 5;
-    this.posx = Math.floor(Math.random() * this.x_range); 
-    this.posy = Math.floor(Math.random() * this.y_range);
+
+    // randomly puts food, then checks for overlap
+    // in case of overlap, tries for a new position
+    var overlap = true;
+    while (overlap) {
+        this.posx = Math.floor(Math.random() * this.x_range);
+        this.posy = Math.floor(Math.random() * this.y_range);
+
+        overlap = this.hitObject(this.posx, this.posy, board);
+    }
 };
 
-// set of Food so it inherits form GameValues
-Food.prototype = Object.create(GameValues.prototype);
+// set of Food so it inherits form SnakeGame
+Food.prototype = Object.create(SnakeGame.prototype);
 Food.prototype.constructor = Food;
 
 Food.prototype.draw = function() {
@@ -64,25 +110,24 @@ Food.prototype.draw = function() {
 };
 
 
-
-function BodySegment(x, y, prev_seg, next_seg, dir) {       // the x and y are coordinates of the board - from 0 to board's x_range and y_range
+function BodySegment(x, y, prev_seg, next_seg) {       // the x and y are coordinates of the board - from 0 to board's x_range and y_range
     this.posx = x; //* (2 * this.unit_space) + 7.5; for drawing
     this.posy = y;
-    this.dir = dir;
     this.prev = prev_seg;
     this.next = next_seg;
     this.size = this.unit_space;
 };
 
-BodySegment.prototype = Object.create(GameValues.prototype);
+BodySegment.prototype = Object.create(SnakeGame.prototype);
 BodySegment.prototype.constructor = BodySegment;
+
 
 
 function Snake(colour_ind, board) {
     this.isAlive = true;
     this.isAI = false;
     this.colour = this.snake_colours[colour_ind];
-
+    this.dir = [0,1];
     this.choose_delay = 0;             //number of moves before the 'closest food' is recalculated for the ai snake
     this.targetx;                       //ai target food x position
     this.targety;                       //ai target food y position
@@ -91,7 +136,7 @@ function Snake(colour_ind, board) {
     this.tail = this.head;
 };
 
-Snake.prototype = Object.create(GameValues.prototype);
+Snake.prototype = Object.create(SnakeGame.prototype);
 Snake.prototype.constructor = Snake;
 
 // creates the head of the snake - need to update board after
@@ -102,14 +147,36 @@ Snake.prototype.createHead = function(board) {
         var h_x = Math.floor(Math.random() * this.x_range);
         var h_y = Math.floor(Math.random() * this.y_range);
 
-        var head = new BodySegment(h_x, h_y, null, null, [0, 1]);
-
-        if (board.board_arr[h_y][h_x] ==  0)
-            overlap = false;
+        var head = new BodySegment(h_x, h_y, null, null);
+        overlap = this.hitObject(h_x, h_y, board);
     }
 
     return head;
 };
+
+// adds a segment to the end of the snake, with the current velocity vector being the snake's tail's velocity vector
+Snake.prototype.addBody = function(posx, posy) {
+    var body = new BodySegment(posx, posy, this.tail, null, this.tail.dir);
+
+    this.tail.next = body;
+    this.tail = body;
+}
+
+Snake.prototype.move = function(){
+    var cur_seg = this.head;
+
+    cur_seg.posx += this.dir[0];
+    cur_seg.posy += this.dir[1];
+
+    cur_seg = cur_seg.next;
+
+    while (cur_seg != null){
+        cur_seg.posx = cur_seg.prev.posx;
+        cur_seg.posy = cur_seg.prev.posy;
+
+        cur_seg = cur_seg.next;
+    }
+}
 
 Snake.prototype.draw = function(){
     ctx.fillStyle = this.colour;
@@ -123,24 +190,53 @@ Snake.prototype.draw = function(){
         ctx.closePath();
         ctx.fill();
 
-        cur_segment = cur_segment.next;
+        cur_seg = cur_seg.next;
     }
 };
 
-var b = new Board();
 
-b.draw();
+var startGame = function(num_snake, num_food){
+    var sg = new SnakeGame();
+    var b = new Board();
+    var snake_arr = new Array(num_snake);
+    var food_arr = new Array(num_food);
+    for (i = 0; i < num_snake; i++){
+        s = new Snake(2, b);
+        b.board_arr[s.head.posy][s.head.posx] = 2;
+        snake_arr[i] = s;
+    }
 
-var f = new Food();
-b.board_arr[f.posy][f.posx] = 1;
+    for (i = 0; i < num_food; i++){
+        f = new Food(b);
+        b.board_arr[f.posy][f.posx] = 1;
+        food_arr[i] = f;
+    }
 
-f.draw();
+    b.draw();
+    sg.drawStartWords();
+            
+    canvas.addEventListener("click", function(event){
+        if (canvas.interval){
+            clearInterval(canvas.interval);
+            canvas.interval = null;
+        } else {
+            canvas.interval = setInterval(function(){
+                b.draw();
+                //take player input and move player snakes
+                //calculate the ai's movements
+                //update the snake's positions according to movements - include growing and removing food
+                //draw everything
+                //write the score
+                //alert("hi");
+                for (i = 0; i < snake_arr.length; i++){
+                    snake_arr[i].move();
+                    snake_arr[i].draw();
+                }
+            }, 1000/15);
+        }
+    });
+};
 
-var s = new Snake(2, b);
-b.board_arr[s.head.posy][s.head.posx] = 2;
+alert("ho");
 
-s.draw();
-
-alert(s.head.posy + " " + s.head.posx);
-
-alert("fihis");
+startGame(1, 1);

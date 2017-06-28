@@ -22,9 +22,6 @@ canvas.width = 750;
 canvas.height = 500;
 
 
-
-function Board 
-
 var foodModule = (function(canvas){
     var food_arr = []; //array of food_arr
 
@@ -35,26 +32,6 @@ var foodModule = (function(canvas){
                 food_arr.push(food);
             }
         },
-
-        createFood: function(){
-            return new Food();
-        },
-
-        addFood: function(food){
-            food_arr.push(food);
-        },
-
-        remFood: function(i){
-            food_arr.splice(i, 1);
-        },
-
-        getFoodArr: function(){
-            return food_arr;
-        },
-
-        updateFood: function(food_arr){
-            this.food_arr = food_arr;
-        }
     }
 })(canvas);
 
@@ -71,14 +48,6 @@ var snakeModule = (function(canvas) {
                 snake_arr.push(snake);
             }
         },
-
-        getSnakeArr: function(){
-            return snake_arr;
-        },
-
-        updateSnake: function(snake, i){
-            snake_arr[i] = snake;
-        }
     };
 })(canvas);
 
@@ -334,46 +303,8 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
         return;
     };
 
-    function drawInit(){
-        if (canvas.getContext)
-            var ctx = canvas.getContext('2d');
-        else return;
-        ctx.save();
-        ctx.fillStyle = "#0000000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "50px Arial";
-        var txt = "Click to begin!"
-        ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, canvas.height/2);
-        ctx.restore();
-        return;
-    };
-
-    function drawEnd(){
-        if (canvas.getContext)
-            var ctx = canvas.getContext('2d');
-        else return;
-        ctx.save();
-        ctx.fillStyle = "#0000000"; //why doesn't this change the colour?
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "50px Arial";
-        var txt = "Game Over!"
-        ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, canvas.height/2);
-        ctx.restore();
-        return;
-    }
     
     return {
-        drawEndScreen: function(){
-            drawEnd();
-        },
-
-        drawStartScreen: function(){
-            drawInit();
-        },
 
         draw: function() {
             if (canvas.getContext)
@@ -423,26 +354,6 @@ var gameModule = (function(canvas, foodModule, snakeModule, actionModule){
     };
 
     return{
-        init: function(num_snake, num_food){
-            drawModule.drawStartScreen();
-            snakeModule.init(num_snake);
-            foodModule.init(num_food);
-            
-            canvas.addEventListener("click", function(event){
-                if (canvas.interval){
-                    clearInterval(canvas.interval);
-                    canvas.interval = null;
-                } else {
-                    canvas.interval = setInterval(function(){
-                        drawModule.draw();
-                        printScore();
-                        if (numLiving() == 0){
-                            drawModule.drawEndScreen();
-                        }
-                    }, 1000/15);
-                }
-            });
-        },
     }
 
 })(canvas, foodModule, snakeModule, actionModule);
