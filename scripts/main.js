@@ -1,3 +1,9 @@
+// TODO:
+//      snake colour - randomize the input number
+//      call the super constructor for the SnakeGame values
+//          Then have one addition colour at end of colour array for food
+//          Then change hitObject to use a posx and posy from SnakeGame, so it isn't a parameter
+
 var canvas = document.getElementById("backgroundCanvas");
 canvas.width = 750;
 canvas.height = 500;
@@ -44,6 +50,14 @@ SnakeGame.prototype.hitObject = function(posx, posy, board, type = 'both'){
             break;
         case 'food':
             hit = board.board_arr[posy][posx] == 1 ? true : false;
+            break;
+        case 'wall':
+            if (posx < 0 || posx > this.x_range)
+                hit = false;
+            if (posy < 0 || posy > this.y_range)
+                hit = false;
+            else
+                hit = true;
             break;
         case 'both':
             hit = (board.board_arr[posy][posx] == 2 || board.board_arr[posy][posx] == 1) ? true: false;
@@ -124,6 +138,8 @@ BodySegment.prototype.constructor = BodySegment;
 
 
 function Snake(colour_ind, board) {
+    var self = this; 
+
     this.isAlive = true;
     this.isAI = false;
     this.colour = this.snake_colours[colour_ind];
@@ -131,9 +147,30 @@ function Snake(colour_ind, board) {
     this.choose_delay = 0;             //number of moves before the 'closest food' is recalculated for the ai snake
     this.targetx;                       //ai target food x position
     this.targety;                       //ai target food y position
-    this.length;
+    this.length = 0;
     this.head = this.createHead(board);
     this.tail = this.head;
+
+    this.control = function(event){
+        switch (event.keyCode){
+            case 37: //left key
+                self.dir = [ -1, 0 ];
+                break;
+            case 38: //up key
+                self.dir = [ 0, -1 ];  
+                break;
+            case 39: //right key
+                self.dir = [ 1, 0 ];
+                break;
+            case 40: //down key
+                self.dir = [ 0, 1 ];
+                break;
+            default:
+                break;
+        }
+    }
+
+    canvas.addEventListener('keydown', function(event){self.control(event);})
 };
 
 Snake.prototype = Object.create(SnakeGame.prototype);
@@ -150,7 +187,8 @@ Snake.prototype.createHead = function(board) {
         var head = new BodySegment(h_x, h_y, null, null);
         overlap = this.hitObject(h_x, h_y, board);
     }
-
+    
+    this.length += 1;
     return head;
 };
 
@@ -160,6 +198,7 @@ Snake.prototype.addBody = function(posx, posy) {
 
     this.tail.next = body;
     this.tail = body;
+    this.length += 1;
 }
 
 Snake.prototype.move = function(){
