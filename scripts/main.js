@@ -1,6 +1,7 @@
 // TODO:
 //      change the board state to reflect snake moving
-//      snake grows when colliding with itself
+//      Is the board state accurate?
+//      add snake death from snake collision
 
 var canvas = document.getElementById("backgroundCanvas");
 canvas.width = 750;
@@ -13,6 +14,8 @@ if (canvas.getContext){
 // SnakeGame - superclass
 function SnakeGame (num_alive) {
     this.num_alive = num_alive;
+    this.alive_hum = num_alive;
+    this.alive_ai;
 }
 
 // spacing of the coordinates on the screen
@@ -39,25 +42,25 @@ SnakeGame.prototype.drawEndWords = function(){
 }
 
 SnakeGame.prototype.hitObject = function(board, type = 'both', posx = this.posx, posy = this.posy){
-    if (board.board_arr[posy][posx] == 0){
-        return false;
-    }
-
     var hit = false;
     switch (type) {
         case 'snake':
+            alert("snake");
             hit = board.board_arr[posy][posx] == 2 ? true : false;
             break;
         case 'food':
             hit = board.board_arr[posy][posx] == 1 ? true : false;
             break;
         case 'wall':
-            if (posx < 0 || posx > x_range)
-                hit = false;
-            if (posy < 0 || posy > y_range)
-                hit = false;
-            else
+            if (posx < 0 || posx >= this.x_range){
                 hit = true;
+            }
+            else if (posy < 0 || posy >= this.y_range){
+                hit = true;
+            }
+            else{
+                hit = false;
+            }
             break;
         case 'both':
             hit = (board.board_arr[posy][posx] != 0) ? true: false;
@@ -67,6 +70,7 @@ SnakeGame.prototype.hitObject = function(board, type = 'both', posx = this.posx,
             hit = (board.board_arr[posy][posx] != 0) ? true: false;
             break;
     }
+    // alert(hit);
     return hit;
 }
 
@@ -142,8 +146,8 @@ function Snake(colour_ind, board) {
     var self = this; 
     this.colour = this.colours[colour_ind];
 
-    this.isAlive = true;
-    this.isAI = false;
+    this.is_alive = true;
+    this.is_ai = false;
 
     this.dir = [0,1];
     this.choose_delay = 0;              // number of moves before the 'closest food' is recalculated for the ai snake
@@ -282,7 +286,9 @@ Snake.prototype.printScore = function (ind){
 
 
 var startGame = function(num_snake, num_food){
-    var sg = new SnakeGame();
+    var sg = new SnakeGame(num_snake);
+
+    alert("x and y ranges are " + sg.x_range + " " + sg.y_range);
     var b = new Board();
     var snake_arr = new Array(num_snake);
     var food_arr = new Array(num_food);
@@ -306,9 +312,6 @@ var startGame = function(num_snake, num_food){
         } else {
             canvas.interval = setInterval(function(){
                 b.draw();
-                for (i = 0; i < food_arr.length; i++){
-                    food_arr[i].draw();
-                }
                 
                 //take player input and move player snakes
                 //calculate the ai's movements
@@ -317,16 +320,39 @@ var startGame = function(num_snake, num_food){
                 //write the score
                 //alert("hi");
 
+                
                 for (i = 0; i < snake_arr.length; i++){
+                    // if the snake is dead, move on to next snake
+                    if (!snake_arr[i].is_alive)
+                        break;
                     // The coordinate of the snake's head after the snake's movement
                     var next_x = snake_arr[i].head.posx + snake_arr[i].dir[0];
                     var next_y = snake_arr[i].head.posy + snake_arr[i].dir[1];
-                    
+                   
+                    // Check whether snake head's position after movement is within bounds first
+                    // then check for food collision, or else may get array out of bounds
+                    // from the board_arr
+                    if (snake_arr[i].hitObject(b, 'wall', next_x, next_y)) {
+                        snake_arr[i].is_alive = false;
+                      
+                        if (!snake_arr[i].is_ai)
+                            sg.alive_hum -= 1;
+
+                        // END CONDITION: no more alive humans, ends when last human player is dead
+                        if (sg.alive_hum == 0){
+                            sg.drawEndWords();
+                            clearInterval(canvas.interval);
+                            canvas.interval = null;
+                            return;
+                        }
+                        // kill snake
+                        // if no snakes are left, end game
+                    } 
                     // Food detection:
                     // If the snake's movement brings it into a 'Food', 
                     // instead of moving the snake, add a new snake body ontop 
                     // of the Food, and make a new Food.
-                    if (snake_arr[i].hitObject(b, 'food', next_x, next_y)){
+                    else if (snake_arr[i].hitObject(b, 'food', next_x, next_y)) {//(snake_arr[i].hitObject(b, 'food', next_x, next_y)){
                          for (j = 0; j < food_arr.length; j++){
                             if (food_arr[j].posx == next_x && food_arr[j].posy == next_y){
                                 // alert("touch");
@@ -335,10 +361,7 @@ var startGame = function(num_snake, num_food){
                                 food_arr[j] = new Food(b);
                             }
                         }
-                    } 
-                    else if (snake_arr[i].hitObject(b, 'snake', next_x, next_y) || snake_arr[i].hitObject(b, 'wall', next_x, next_y)){
-                        alert("snake or wall collision");
-                    } 
+                    }
                     // Only move if the snake's movement will not cause any collisions
                     else {
                         snake_arr[i].move(b);
@@ -347,18 +370,15 @@ var startGame = function(num_snake, num_food){
                     snake_arr[i].printScore(i);
                     snake_arr[i].draw();
 
-                    // alert('3');
+                for (i = 0; i < food_arr.length; i++){
+                    food_arr[i].draw();
                 }
 
-                
-
-
-
+                    // alert('3');
+                }
             }, 1000/15);
         }
     });
 };
-
-alert("ho");
 
 startGame(1, 1);
