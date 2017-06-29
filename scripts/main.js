@@ -1,8 +1,6 @@
 // TODO:
-//      snake colour - randomize the input number
-//      call the super constructor for the SnakeGame values
-//          Then have one addition colour at end of colour array for food
-//          Then change hitObject to use a posx and posy from SnakeGame, so it isn't a parameter
+//      change the board state to reflect snake moving
+//      snake grows when colliding with itself
 
 var canvas = document.getElementById("backgroundCanvas");
 canvas.width = 750;
@@ -21,8 +19,10 @@ function SnakeGame (num_alive) {
 SnakeGame.prototype.unit_space = 7.5;
 SnakeGame.prototype.x_range = Math.floor(canvas.width / (2 * SnakeGame.prototype.unit_space));
 SnakeGame.prototype.y_range = Math.floor(canvas.height / (2 * SnakeGame.prototype.unit_space));
+SnakeGame.prototype.posx;
+SnakeGame.prototype.posy;
 // colours of snakes
-SnakeGame.prototype.snake_colours = [ "#53F527", "#9821F0", "#21F0EA", "#F0ED21", "#FF6F50" ];
+SnakeGame.prototype.colours = [ "#53F527", "#9821F0", "#21F0EA", "#F0ED21", "#FF6F50", "#ffffff" ];
 // write start screen words
 SnakeGame.prototype.drawStartWords = function(){
         ctx.fillStyle = "#ffffff";
@@ -38,7 +38,7 @@ SnakeGame.prototype.drawEndWords = function(){
         ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, canvas.height/2);
 }
 
-SnakeGame.prototype.hitObject = function(posx, posy, board, type = 'both'){
+SnakeGame.prototype.hitObject = function(board, type = 'both', posx = this.posx, posy = this.posy){
     if (board.board_arr[posy][posx] == 0){
         return false;
     }
@@ -52,19 +52,19 @@ SnakeGame.prototype.hitObject = function(posx, posy, board, type = 'both'){
             hit = board.board_arr[posy][posx] == 1 ? true : false;
             break;
         case 'wall':
-            if (posx < 0 || posx > this.x_range)
+            if (posx < 0 || posx > x_range)
                 hit = false;
-            if (posy < 0 || posy > this.y_range)
+            if (posy < 0 || posy > y_range)
                 hit = false;
             else
                 hit = true;
             break;
         case 'both':
-            hit = (board.board_arr[posy][posx] == 2 || board.board_arr[posy][posx] == 1) ? true: false;
+            hit = (board.board_arr[posy][posx] != 0) ? true: false;
             break;
         default:
             alert("put in wrong value for a SnakeGame.prototype.hit function");
-            hit = (board.board_arr[posy][posx] == 2 || board.board_arr[posy][posx] == 1) ? true: false;
+            hit = (board.board_arr[posy][posx] != 0) ? true: false;
             break;
     }
     return hit;
@@ -93,9 +93,9 @@ Board.prototype.draw = function() {
 };
 
 
-// Food - subclass
+// Food - subclass - new Food also updates board array
 function Food(board) {
-    this.colour = "#ffffff";
+    this.colour = this.colours[5];
     this.size = 5;
 
     // randomly puts food, then checks for overlap
@@ -105,8 +105,9 @@ function Food(board) {
         this.posx = Math.floor(Math.random() * this.x_range);
         this.posy = Math.floor(Math.random() * this.y_range);
 
-        overlap = this.hitObject(this.posx, this.posy, board);
+        overlap = this.hitObject(board);
     }
+    board.board_arr[this.posy][this.posx] = 1;
 };
 
 // set of Food so it inherits form SnakeGame
@@ -124,7 +125,7 @@ Food.prototype.draw = function() {
 };
 
 
-function BodySegment(x, y, prev_seg, next_seg) {       // the x and y are coordinates of the board - from 0 to board's x_range and y_range
+function BodySegment(x, y, prev_seg, next_seg) {       // the x and y are coordinates of the board - from 0 to board's x_range and y_range\
     this.posx = x; //* (2 * this.unit_space) + 7.5; for drawing
     this.posy = y;
     this.prev = prev_seg;
@@ -136,20 +137,21 @@ BodySegment.prototype = Object.create(SnakeGame.prototype);
 BodySegment.prototype.constructor = BodySegment;
 
 
-
+// new Snake also updates board array
 function Snake(colour_ind, board) {
     var self = this; 
+    this.colour = this.colours[colour_ind];
 
     this.isAlive = true;
     this.isAI = false;
-    this.colour = this.snake_colours[colour_ind];
+
     this.dir = [0,1];
-    this.choose_delay = 0;             //number of moves before the 'closest food' is recalculated for the ai snake
-    this.targetx;                       //ai target food x position
-    this.targety;                       //ai target food y position
+    this.choose_delay = 0;              // number of moves before the 'closest food' is recalculated for the ai snake
+    this.targetx;                       // ai target food x position
+    this.targety;                       // ai target food y position
     this.length = 0;
     this.head = this.createHead(board);
-    this.tail = this.head;
+    this.tail;
 
     this.control = function(event){
         switch (event.keyCode){
@@ -176,7 +178,18 @@ function Snake(colour_ind, board) {
 Snake.prototype = Object.create(SnakeGame.prototype);
 Snake.prototype.constructor = Snake;
 
-// creates the head of the snake - need to update board after
+Snake.prototype.printBody = function(){
+    var arr = []
+    var seg = this.head;
+
+    while (seg != null){
+        arr.push([seg.posx + " " + seg.posy]);
+        seg = seg.next;
+    }
+    alert(arr);
+}
+
+// creates the head of the snake and updates the board array
 Snake.prototype.createHead = function(board) {
     var overlap = true;
 
@@ -185,41 +198,63 @@ Snake.prototype.createHead = function(board) {
         var h_y = Math.floor(Math.random() * this.y_range);
 
         var head = new BodySegment(h_x, h_y, null, null);
-        overlap = this.hitObject(h_x, h_y, board);
+        overlap = head.hitObject(board);
     }
     
+    board.board_arr[head.posy][head.posx] = 2;
     this.length += 1;
     return head;
 };
 
-// adds a segment to the end of the snake, with the current velocity vector being the snake's tail's velocity vector
-Snake.prototype.addBody = function(posx, posy) {
-    var body = new BodySegment(posx, posy, this.tail, null, this.tail.dir);
-
-    this.tail.next = body;
-    this.tail = body;
+// adds a segment to the end of the snake with specified posx and posy
+// also updates the board array to reflect that
+Snake.prototype.addBody = function(posx, posy, board) {
+    var body = new BodySegment(posx, posy, null, this.head);
+    if (this.length == 1){
+        this.head.prev = body;
+        this.tail = this.head;
+        this.head = body;
+    }
+    else {
+        this.head.prev = body;
+        this.head = body;
+    }
+    board.board_arr[this.head.posy][this.head.posx] = 2;
     this.length += 1;
 }
 
-Snake.prototype.move = function(){
-    var cur_seg = this.head;
+// moves snake and updates board
+Snake.prototype.move = function(board){
+    // from the tail, change position to the previous segment's position thus moving snake
+    var cur_seg = this.tail;
+    if (cur_seg != null){
+        board.board_arr[cur_seg.posy][cur_seg.posx] = 0;
+        while (cur_seg.prev != null){
+            cur_seg.posx = cur_seg.prev.posx;
+            cur_seg.posy = cur_seg.prev.posy;
 
+            cur_seg = cur_seg.prev;
+        }
+    } else {
+        // if cur_seg is null, then the length of snake is 1, so would update the old head value to 0
+        board.board_arr[this.head.posy][this.head.posx] = 0;
+    }
+
+    // move the head via the snake's dir
+    // requires explicitly state cur_seg = this.head for when snake's length's is 1
+    // and the tail's previous is null, so would be moving head instead of tail.
+    cur_seg = this.head;
     cur_seg.posx += this.dir[0];
     cur_seg.posy += this.dir[1];
-
-    cur_seg = cur_seg.next;
-
-    while (cur_seg != null){
-        cur_seg.posx = cur_seg.prev.posx;
-        cur_seg.posy = cur_seg.prev.posy;
-
-        cur_seg = cur_seg.next;
-    }
+    // updates board array
+    board.board_arr[this.head.posy][this.head.pos] = 2;
 }
 
 Snake.prototype.draw = function(){
     ctx.fillStyle = this.colour;
+    ctx.fillStyle = "#F0ED21";
     var cur_seg = this.head;
+
 
     while (cur_seg != null){
         ctx.beginPath();
@@ -230,8 +265,20 @@ Snake.prototype.draw = function(){
         ctx.fill();
 
         cur_seg = cur_seg.next;
+        ctx.fillStyle = this.colour;
     }
 };
+
+Snake.prototype.printScore = function (ind){
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "20px Arial";
+    ctx.fillText("Score", canvas.width-100, canvas.height - 120);
+    ctx.font = "10px Arial";
+
+    var txt = "Player " + String(ind) + ": " + String(this.length);
+    ctx.fillText(txt, canvas.width - 100, canvas.height - (100 - 15*(ind)));
+}
+    
 
 
 var startGame = function(num_snake, num_food){
@@ -240,14 +287,12 @@ var startGame = function(num_snake, num_food){
     var snake_arr = new Array(num_snake);
     var food_arr = new Array(num_food);
     for (i = 0; i < num_snake; i++){
-        s = new Snake(2, b);
-        b.board_arr[s.head.posy][s.head.posx] = 2;
+        s = new Snake(i%5, b);
+        s.printBody();
         snake_arr[i] = s;
     }
-
     for (i = 0; i < num_food; i++){
         f = new Food(b);
-        b.board_arr[f.posy][f.posx] = 1;
         food_arr[i] = f;
     }
 
@@ -261,16 +306,54 @@ var startGame = function(num_snake, num_food){
         } else {
             canvas.interval = setInterval(function(){
                 b.draw();
+                for (i = 0; i < food_arr.length; i++){
+                    food_arr[i].draw();
+                }
+                
                 //take player input and move player snakes
                 //calculate the ai's movements
                 //update the snake's positions according to movements - include growing and removing food
                 //draw everything
                 //write the score
                 //alert("hi");
+
                 for (i = 0; i < snake_arr.length; i++){
-                    snake_arr[i].move();
+                    // The coordinate of the snake's head after the snake's movement
+                    var next_x = snake_arr[i].head.posx + snake_arr[i].dir[0];
+                    var next_y = snake_arr[i].head.posy + snake_arr[i].dir[1];
+                    
+                    // Food detection:
+                    // If the snake's movement brings it into a 'Food', 
+                    // instead of moving the snake, add a new snake body ontop 
+                    // of the Food, and make a new Food.
+                    if (snake_arr[i].hitObject(b, 'food', next_x, next_y)){
+                         for (j = 0; j < food_arr.length; j++){
+                            if (food_arr[j].posx == next_x && food_arr[j].posy == next_y){
+                                // alert("touch");
+                                // create new food, and change the board array within constructor
+                                snake_arr[i].addBody(food_arr[j].posx, food_arr[j].posy, b);
+                                food_arr[j] = new Food(b);
+                            }
+                        }
+                    } 
+                    else if (snake_arr[i].hitObject(b, 'snake', next_x, next_y) || snake_arr[i].hitObject(b, 'wall', next_x, next_y)){
+                        alert("snake or wall collision");
+                    } 
+                    // Only move if the snake's movement will not cause any collisions
+                    else {
+                        snake_arr[i].move(b);
+                    }
+
+                    snake_arr[i].printScore(i);
                     snake_arr[i].draw();
+
+                    // alert('3');
                 }
+
+                
+
+
+
             }, 1000/15);
         }
     });

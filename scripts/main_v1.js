@@ -178,25 +178,6 @@ var gameModule = (function(canvas, foodModule, snakeModule, actionModule){
         return num_alive;
     }
 
-    function printScore(){
-        var snake_arr = snakeModule.getSnakeArr();
-
-        var ctx = canvas.getContext('2d');
-        ctx.save();
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "20px Arial";
-        ctx.fillText("Score", canvas.width-100, canvas.height - 120);
-        ctx.font = "10px Arial";
-
-        for (i = 0; i<snake_arr.length; i++){
-            var txt = "Player " + String(i) + ": " + String(snake_arr[i].body.length);
-            ctx.fillText(txt, canvas.width - 100, canvas.height - (100 - 15*(i)));
-        }
-        ctx.restore();
-
-        return;
-    };
-
     return{
     }
 
