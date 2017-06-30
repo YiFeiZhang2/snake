@@ -1,10 +1,8 @@
 /*TODO:
-    Eliminate possibility of food spawning on each other
     Remove ability to go backwards into self
     option to choose number of players
     option to choose whether player is ai or human
     limit human players to max of 2
-    Score board
     Game module: Death of snake -> leaves body as obstacle -> game over when no snake is alive anymore -> Option to restart
                 Death screen w/ who wins and score
                 pause screen

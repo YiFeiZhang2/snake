@@ -45,7 +45,7 @@ SnakeGame.prototype.hitObject = function(board, type = 'both', posx = this.posx,
     var hit = false;
     switch (type) {
         case 'snake':
-            alert("snake");
+            // alert("snake");
             hit = board.board_arr[posy][posx] == 2 ? true : false;
             break;
         case 'food':
@@ -95,6 +95,19 @@ Board.prototype.draw = function() {
     ctx.fillStyle = this.colour;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 };
+
+Board.prototype.debugArr = function() {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "8px Arial";
+    for (i = 0; i < this.board_arr.length; i ++){
+        for (j = 0; j < this.board_arr[i].length; j++){
+            var txt = this.board_arr[i][j];
+
+            ctx.fillText(txt, 2* j * this.unit_space + this.unit_space, 2* i * this.unit_space + this.unit_space);
+            //ctx.fillText(txt, j * this.unit_space , i * this.uni_space);
+        }
+    }
+}
 
 
 // Food - subclass - new Food also updates board array
@@ -251,7 +264,7 @@ Snake.prototype.move = function(board){
     cur_seg.posx += this.dir[0];
     cur_seg.posy += this.dir[1];
     // updates board array
-    board.board_arr[this.head.posy][this.head.pos] = 2;
+    board.board_arr[this.head.posy][this.head.posx] = 2;
 }
 
 Snake.prototype.draw = function(){
@@ -322,6 +335,8 @@ var startGame = function(num_snake, num_food){
 
                 
                 for (i = 0; i < snake_arr.length; i++){
+                    //alert('snake\'s head position is ' + snake_arr[i].head.posx + " " + snake_arr[i].head.posy);
+                    //alert('board state is ' + b.board_arr[snake_arr[i].head.posy][snake_arr[i].head.posx]);
                     // if the snake is dead, move on to next snake
                     if (!snake_arr[i].is_alive)
                         break;
@@ -350,8 +365,7 @@ var startGame = function(num_snake, num_food){
                     } 
                     // Food detection:
                     // If the snake's movement brings it into a 'Food', 
-                    // instead of moving the snake, add a new snake body ontop 
-                    // of the Food, and make a new Food.
+                    // instead of moving the snake, add a new snake body ontop of the Food, and make a new Food.
                     else if (snake_arr[i].hitObject(b, 'food', next_x, next_y)) {//(snake_arr[i].hitObject(b, 'food', next_x, next_y)){
                          for (j = 0; j < food_arr.length; j++){
                             if (food_arr[j].posx == next_x && food_arr[j].posy == next_y){
@@ -363,19 +377,30 @@ var startGame = function(num_snake, num_food){
                         }
                     }
                     // Only move if the snake's movement will not cause any collisions
+                    else if (snake_arr[i].hitObject(b, 'snake', next_x, next_y)) {
+                        snake_arr[i].is_alive = false;
+
+                        if (!snake_arr[i].is_ai)
+                            sg.alive_hum -= 1;
+
+                        if (sg.alive_hum == 0){
+                            sg.drawEndWords();
+                            clearInterval(canvas.interval);
+                            canvas.interval = null;
+                            return;
+                        }
+                    }
                     else {
                         snake_arr[i].move(b);
                     }
 
                     snake_arr[i].printScore(i);
                     snake_arr[i].draw();
-
+                }
                 for (i = 0; i < food_arr.length; i++){
                     food_arr[i].draw();
                 }
-
-                    // alert('3');
-                }
+                // b.debugArr();
             }, 1000/15);
         }
     });
