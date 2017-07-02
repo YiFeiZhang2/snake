@@ -5,6 +5,7 @@
 //      AI movement (A*?)
 //      AI movement (machine learning)
 //      Second human player
+//      Put in a time limit on AI path finding time
 
 
 // Weird stuff:
@@ -15,6 +16,7 @@
 //          Seems to be timed with the pathfinding - perhaps it takes too long?
 //          Yet the 'score' words dont flicker, nor do anything else
 //      AI snakes other than the first also flicker, but not the human one
+//      Bad stuff happens when AI snake does not find any food
 
 
 // BUG:
@@ -573,10 +575,10 @@ var startGame = function (num_snake, num_food) {
                     food_arr[i].draw();
                 }
 
-                    b.debugArr();
+                // b.debugArr();
             }, 1000 / 7.5);
         }
     });
 };
 
-startGame(3, 50);
+startGame(2, 50);

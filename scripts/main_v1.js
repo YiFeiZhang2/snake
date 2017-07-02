@@ -19,36 +19,6 @@ var canvas = document.getElementById("backgroundCanvas");
 canvas.width = 750;
 canvas.height = 500;
 
-
-    return {
-        calcAction: function(snake_arr, food_arr){
-            anyHitSnake(snake_arr);
-            for (i = 0; i<snake_arr.length; i++){
-                hitWall(snake_arr[i]);
-            }
-
-            for(i = 0; i<snake_arr.length; i++){
-                for (j = 0; j<food_arr.length; j++){
-                    if (snake_arr[i].body[0].posx == food_arr[j].posx && snake_arr[i].body[0].posy == food_arr[j].posy){
-                        growSnake(snake_arr[i]);
-                        //snakeModule.updateSnake(snake_arr[i], i);
-                        
-                        foodModule.remFood(j);
-                        var new_food = foodModule.createFood();
-                        while (isOverlap(new_food, snake_arr, food_arr)){
-                            new_food = foodModule.createFood();
-                        }
-                        foodModule.addFood(new_food);
-                        
-                    }
-                }
-                moveSnake(snake_arr[i]);
-            }
-            return;
-        }
-    }
-})(canvas, foodModule, snakeModule);
-
 var aiModule = (function(canvas, foodModule, snakeModule, actionModule){
     function closestFood(snake, food_arr){          //returns index of closest food particle in food_arr to the snake
         var min = Math.pow(canvas.width, 2) + Math.pow(canvas.height, 2);
