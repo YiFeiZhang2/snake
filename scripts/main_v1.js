@@ -162,26 +162,3 @@ var drawModule = (function(canvas, foodModule, snakeModule, actionModule){ //to 
     }
 })(canvas, foodModule, snakeModule, actionModule);
 
-var gameModule = (function(canvas, foodModule, snakeModule, actionModule){
-
-    function numLiving(){
-        var snake_arr = snakeModule.getSnakeArr();
-
-        var num_alive = 0;
-        for (i = 0; i<snake_arr.length; i++){
-            if (snake_arr[0].isAlive)
-                num_alive += 1;
-        }
-
-        return num_alive;
-    }
-
-    return{
-    }
-
-})(canvas, foodModule, snakeModule, actionModule);
-
-window.onload = function(){
-    gameModule.init(2, 10);
-};
-
