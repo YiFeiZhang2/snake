@@ -278,20 +278,22 @@ PQueue.prototype.Swap = function (self, target) {
 };
 
 PQueue.prototype.Heapify = function (ind) {
-    var left_ind = this.GetLeft(ind),
-        right_ind = this.GetRight(ind);
-
     while (true) {
+        var left_ind = this.GetLeft(ind),
+            right_ind = this.GetRight(ind);
+        var min_ind;
         var min_val = Math.min(this.queue[left_ind].value, this.queue[right_ind].value, this.queue[ind].value);
         if (min_val == this.queue[left_ind].value && min_val != this.queue[ind].value) {
-            this.Swap(ind, left_ind);
+            min_ind = left_ind;
         }
         else if (min_val == this.queue[right_ind].value && min_val != this.queue[ind].value) {
-            this.Swap(ind, right_ind);
+            min_ind = right_ind;
         }
         else {
             break;
         }
+        this.Swap(ind, min_ind);
+        ind = min_ind;
     }
 };
 
@@ -493,7 +495,7 @@ Snake.prototype.ai_pathfind_a = function (board, start, goal) {
         var current = frontier.DeleteMin();
 
         if (current.g_node[0] == goal[0] && current.g_node[1] == goal[1]) {
-            printArr(cost_so_far);
+            // printArr(cost_so_far);
             break;
         }
 
