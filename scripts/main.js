@@ -24,6 +24,7 @@
 
 // BUG:
 //      End screen not displaying when no more human players
+//      A* search does not do the last step of actually eating the food
 
 
 // Optimization:
@@ -488,10 +489,6 @@ Snake.prototype.ai_pathfind_a = function (board, start, goal) {
     var counter = 0;
 
     while (!frontier.isEmpty()) {
-        // does reach over 50000
-        //if (counter > 50000)
-        //    alert("fuck");
-
         var current = frontier.DeleteMin();
 
         if (current.g_node[0] == goal[0] && current.g_node[1] == goal[1]) {
@@ -533,7 +530,7 @@ Snake.prototype.ReconstructPath = function (came_from, destination) {
 // destination is a [x, y] coordinate
 Snake.prototype.PathToDirection = function (path) {
     this.path = [];
-    for (i = 1; i < path.length - 1; i++) {
+    for (i = 1; i < path.length; i++) {
         this.path.push([path[i-1][0] - path[i][0], path[i-1][1] - path[i][1]]);
     }
 }
@@ -689,6 +686,12 @@ var startGame = function (num_snake, num_food) {
                 b.draw();
                 var cur_snake;
 
+                if (sg.num_alive == 0) {
+                    sg.drawEndWords();
+                    clearInterval(canvas.interval);
+                    canvas.interval = null;
+                    return;
+                }
                 //take player input and move player snakes
                 //calculate the ai's movements
                 //update the snake's positions according to movements - include growing and removing food
@@ -709,6 +712,9 @@ var startGame = function (num_snake, num_food) {
                             //printArr(came_from);
 
                             var path = cur_snake.ReconstructPath(came_from, food_pos);
+
+                            // alert(Math.abs(food_pos[0]- cur_snake.head.posx) + Math.abs(food_pos[1] - cur_snake.head.posy));
+                            // alert(path.length);
 
                             cur_snake.PathToDirection(path);
                             // bfs path search
@@ -731,17 +737,10 @@ var startGame = function (num_snake, num_food) {
                         // from the board_arr
                         if (cur_snake.hitObject(b, 'wall', next_x, next_y)) {
                             cur_snake.is_alive = false;
+                            sg.num_alive -= 1;
 
                             if (!cur_snake.is_ai)
                                 sg.alive_hum -= 1;
-
-                            // END CONDITION: no more alive humans, ends when last human player is dead
-                            if (sg.alive_hum == 0) {
-                                sg.drawEndWords();
-                                clearInterval(canvas.interval);
-                                canvas.interval = null;
-                                return;
-                            }
                             // kill snake
                             // if no snakes are left, end game
                         }
@@ -764,22 +763,16 @@ var startGame = function (num_snake, num_food) {
                                 var path = cur_snake.ReconstructPath(came_from, food_pos);
                                 cur_snake.PathToDirection(path);
                                 // bfs ai
-                                // cur_snake.ai_pathfind_bfs(b);
+                                //cur_snake.ai_pathfind_bfs(b);
                             }
                         }
                         // Only move if the snake's movement will not cause any collisions
                         else if (cur_snake.hitObject(b, 'snake', next_x, next_y)) {
                             cur_snake.is_alive = false;
+                            sg.num_alive -= 1;
 
                             if (!cur_snake.is_ai)
                                 sg.alive_hum -= 1;
-
-                            if (sg.alive_hum == 0) {
-                                sg.drawEndWords();
-                                clearInterval(canvas.interval);
-                                canvas.interval = null;
-                                return;
-                            }
                         }
                         else {
                             cur_snake.move(b);
@@ -796,11 +789,10 @@ var startGame = function (num_snake, num_food) {
                 for (i = 0; i < food_arr.length; i++) {
                     food_arr[i].draw();
                 }
-
                 // b.debugArr();
-            }, 1000 / 10);
+            }, 1000 / 30);
         }
     });
 };
 
-startGame(1, 1);
+startGame(1, 100);
