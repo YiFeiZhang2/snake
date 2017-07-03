@@ -17,6 +17,9 @@
 //          Yet the 'score' words dont flicker, nor do anything else
 //      AI snakes other than the first also flicker, but not the human one
 //      Bad stuff happens when AI snake does not find any food
+//      Replacing 'n_coord' with 'next' in the bfs_ai causes snake to only go down and right
+//      In A*, to compare the current.g_node == goal doesnt work
+//          but current.g_node[0] == goal[0] && current.g_node[1] == goal[1] does??
 
 
 // BUG:
@@ -29,6 +32,7 @@
 //      Snake is double linked list - can use single linked list
 //          Will have to change the movement function
 //      The path grid is just a 2D array, no need for the object?
+//      Clean up graph representation
 
 var canvas = document.getElementById("backgroundCanvas");
 canvas.width = 750;
@@ -36,6 +40,11 @@ canvas.height = 500;
 
 if (canvas.getContext) {
     var ctx = canvas.getContext('2d');
+}
+
+var heuristic = function (a, b) {
+    // Manhattan distance
+    return ( Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) );
 }
 
 // SnakeGame - superclass
@@ -72,7 +81,6 @@ SnakeGame.prototype.hitObject = function (board, type = 'both', posx = this.posx
     var hit = false;
     switch (type) {
         case 'snake':
-            // alert("snake");
             hit = board.board_arr[posy][posx] == 2 ? true : false;
             break;
         case 'food':
@@ -97,7 +105,6 @@ SnakeGame.prototype.hitObject = function (board, type = 'both', posx = this.posx
             hit = (board.board_arr[posy][posx] != 0) ? true : false;
             break;
     }
-    // alert(hit);
     return hit;
 }
 
@@ -137,11 +144,10 @@ Board.prototype.debugArr = function () {
 }
 
 // Node for pathfinding
-function GridNode(x, y, seen = false, accessible = true, food = false, prev) {
+function GridNode(x, y, accessible = true, food = false, prev) {
     this.x = x;
     this.y = y;
     this.prev = prev;
-    this.seen = seen;
     this.accessible = accessible;
     this.food = food;
 }
@@ -157,19 +163,35 @@ function PathGrid(board) {
         for (j = 0; j < this.x_range; j++) {
             var state = board.board_arr[i][j];
             if (state == 2) {
-                this.grid[i][j] = new GridNode(j, i, false, false, false, null);
+                this.grid[i][j] = new GridNode(j, i, false, false, null);
             }
             else if (state == 1) {
-                this.grid[i][j] = new GridNode(j, i, seen = false, accessible = true, food = true, null)
+                this.grid[i][j] = new GridNode(j, i, accessible = true, food = true, null)
             }
             else if (state == 0) {
-                this.grid[i][j] = new GridNode(j, i, false, accessible = true, food = false, null);
+                this.grid[i][j] = new GridNode(j, i, accessible = true, food = false, null);
             }
             else {
                 alert("The board state is messed up: board.board_arr[" + i + "]" + "[" + j + "] is " + board.board_arr[i][j]);
             }
         }
     }
+}
+
+PathGrid.prototype.neighbours = function (node) {
+    var self = this;
+    var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    var results = [];
+    dirs.forEach(function(item, index, array){
+        var neighbour = [node.x + item[0], node.y + item[1]];
+
+        if (0 <= neighbour[0] && neighbour[0] < self.x_range && 0 <= neighbour[1] && neighbour[1] < self.y_range){
+            if (self.grid[neighbour[1]][neighbour[0]].accessible){
+                results.push(self.grid[neighbour[1]][neighbour[0]]);
+            }
+        }
+    });
+    return results;
 }
 
 PathGrid.prototype.debugArr = function () {
@@ -186,6 +208,105 @@ PathGrid.prototype.debugArr = function () {
         }
     }
 }
+
+// Node for PQueue
+function Node(node, value) {
+    this.g_node = node;
+    this.value = value;
+}
+
+// Priority Queue - min heap
+function PQueue() {
+    this.size = 0;
+    this.queue = [];
+};
+
+
+PQueue.prototype.isEmpty = function () {
+    return (this.size == 0);
+};
+
+
+
+PQueue.prototype.GetParent = function (index) {
+    if (index != 0)
+        return Math.ceil(index/2) - 1;
+    else
+        return index;
+};
+
+PQueue.prototype.GetLeft = function (index) {
+    if (2*index + 1 < this.size)
+        return 2*index + 1;
+    else
+        return index;
+};
+
+PQueue.prototype.GetRight = function (index) {
+    if (2*index + 2 < this.size)
+        return 2*index + 2;
+    else
+        return index;
+};
+
+PQueue.prototype.BubbleUp = function (index) {
+    if (index === 0)
+        return;
+
+    var parent_ind = this.GetParent(index);
+
+    if (this.queue[index].value < this.queue[parent_ind].value) {
+        this.Swap(index, parent_ind);
+        this.BubbleUp(parent_ind);
+    }
+    else {
+        return;
+    }
+
+}
+
+PQueue.prototype.Insert = function (node, value) {
+    this.size += 1;
+    this.queue.push(new Node(node, value));
+    this.BubbleUp(this.size - 1);
+}
+
+PQueue.prototype.Swap = function (self, target) {
+    var temp = this.queue[self];
+    this.queue[self] = this.queue[target];
+    this.queue[target] = temp;
+};
+
+PQueue.prototype.Heapify = function (ind) {
+    var left_ind = this.GetLeft(ind),
+        right_ind = this.GetRight(ind);
+
+    while (true) {
+        var min_val = Math.min(this.queue[left_ind].value, this.queue[right_ind].value, this.queue[ind].value);
+        if (min_val == this.queue[left_ind].value && min_val != this.queue[ind].value) {
+            this.Swap(ind, left_ind);
+        }
+        else if (min_val == this.queue[right_ind].value && min_val != this.queue[ind].value) {
+            this.Swap(ind, right_ind);
+        }
+        else {
+            break;
+        }
+    }
+};
+
+PQueue.prototype.DeleteMin = function () {
+    if (this.size == 0){
+        alert("Error: Attempted to delete from empty queue");
+        return null;
+    }
+
+    var min = this.queue[0];
+    this.queue[0] = this.queue.pop();
+    this.size -= 1;
+    this.Heapify(0);
+    return min;
+};
 
 
 // Food - subclass - new Food also updates board array
@@ -246,8 +367,6 @@ function Snake(colour_ind, board, is_ai = false) {
     this.path = [];                     // path to follow - will be in reverse order
     this.path_delay = 5;                // delay in number of frames before finding a new path
     this.choose_delay = 0;              // number of moves before the 'closest food' is recalculated for the ai snake
-    this.targetx;                       // ai target food x position
-    this.targety;                       // ai target food y position
 
     this.is_ai = is_ai;
     if (!this.is_ai) {
@@ -325,22 +444,115 @@ Snake.prototype.addBody = function (posx, posy, board) {
     this.length += 1;
 }
 
+// finds closest food and returns coordinates
+Snake.prototype.FindFood = function (food_arr) {
+    var self = this;
+    var min_dist = 100000;
+    var min_ind = 0;
+    food_arr.forEach(function(item, index, array){
+        var dist = (item.posx - self.head.posx) + (item.posy - self.head.posy);
+        if (dist < min_dist) {
+            min_dist = dist;
+            min_ind = index;
+        }
+    });
+    return [food_arr[min_ind].posx, food_arr[min_ind].posy];
+}
+
+// calculates the snake's direction using A*
+// start and goal are pair of [x, y] coordinates
+Snake.prototype.ai_pathfind_a = function (board, start, goal) {
+    var p_grid = new PathGrid(board);
+    var frontier = new PQueue();
+    frontier.Insert(start, 0);
+    var came_from = [];
+    for (i = 0; i < this.y_range; i++){
+        came_from[i] = [];
+        for(j = 0; j < this.x_range; j++){
+            came_from[i][j] = undefined;
+        }
+    }
+    var cost_so_far = [];
+    for (i = 0; i < this.y_range; i++){
+        cost_so_far[i] = [];
+        for (j = 0; j < this.x_range; j++){
+            cost_so_far[i][j] = undefined;
+        }
+    }
+
+    came_from[start[1]][start[0]] = null;
+    cost_so_far[start[1]][start[0]] = 0;
+
+    var counter = 0;
+
+    while (!frontier.isEmpty()) {
+        // does reach over 50000
+        //if (counter > 50000)
+        //    alert("fuck");
+
+        var current = frontier.DeleteMin();
+
+        if (current.g_node[0] == goal[0] && current.g_node[1] == goal[1]) {
+            printArr(cost_so_far);
+            break;
+        }
+
+        p_grid.neighbours(p_grid.grid[current.g_node[1]][current.g_node[0]]).forEach(function(next, index, array){
+            var n_coord = [next.x, next.y];
+            var new_cost = cost_so_far[current.g_node[1]][current.g_node[0]] + 1;
+            // alert(new_cost);
+
+            if (cost_so_far[n_coord[1]][n_coord[0]] == undefined || new_cost < cost_so_far[n_coord[1]][n_coord[0]]){
+                cost_so_far[n_coord[1]][n_coord[0]] = new_cost;
+                var priority = new_cost + heuristic (goal, n_coord);
+                frontier.Insert(n_coord, priority);
+                came_from[n_coord[1]][n_coord[0]] = [current.g_node[0], current.g_node[1]];
+            }
+        });
+        counter += 1;
+    }
+    //printArr(cost_so_far);
+
+    return came_from;
+}
+
+// destination is a [x, y] coordinate
+Snake.prototype.ReconstructPath = function (came_from, destination) {
+    var path = [];
+    path.push(destination);
+    var cur = destination
+    while (came_from[cur[1]][cur[0]] != null) {
+        path.push(came_from[cur[1]][cur[0]]);
+        cur = came_from[cur[1]][cur[0]];
+    }
+    return path;
+}
+
+// destination is a [x, y] coordinate
+Snake.prototype.PathToDirection = function (path) {
+    this.path = [];
+    for (i = 1; i < path.length - 1; i++) {
+        this.path.push([path[i-1][0] - path[i][0], path[i-1][1] - path[i][1]]);
+    }
+}
+
 // calculates the snake's direction using BFS
 // changes the snake's path of direction vectors to follow
 // path will be in reverse order
 Snake.prototype.ai_pathfind_bfs = function (board) {
     // first reset the snake's path
     this.path = [];
+    var seen = [];
     var node;
     var p_grid = new PathGrid(board);
 
     // Using an array as a queue - could be optimized
     var q = new Array();
 
-    p_grid.grid[this.head.posy][this.head.posx].seen = true;
+    seen[[this.head.posx, this.head.posx]]= true;
     q.push(p_grid.grid[this.head.posy][this.head.posx]);
 
-    while (q != []) {
+    while (q.length != 0) {
         node = q.shift();
 
         // food is found, follow prev pointers back to head to make path
@@ -354,45 +566,27 @@ Snake.prototype.ai_pathfind_bfs = function (board) {
             return self;
         }
 
+        p_grid.neighbours(node).forEach(function(next, index, array){
+            var n_coord = [next.x, next.y];
+            if (seen[n_coord] != true) {
+                seen[n_coord] = true;
+                next.prev = node;
+                q.push(next);
+            }
+        });
         // go up
         if (node.y > 0 && p_grid.grid[node.y - 1][node.x].accessible) {
-            if (!p_grid.grid[node.y - 1][node.x].seen) {
-                p_grid.grid[node.y - 1][node.x].seen = true;
-                p_grid.grid[node.y - 1][node.x].prev = node;
-                q.push(p_grid.grid[node.y - 1][node.x]);
-            }
-        }
-        // go down
-        if (node.y + 1 < board.y_range && p_grid.grid[node.y + 1][node.x].accessible) {
-            if (!p_grid.grid[node.y + 1][node.x].seen) {
-                p_grid.grid[node.y + 1][node.x].seen = true;
-                p_grid.grid[node.y + 1][node.x].prev = node;
-                q.push(p_grid.grid[node.y + 1][node.x]);
-            }
-        }
-        // go left
-        if (node.x > 0 && p_grid.grid[node.y][node.x - 1].accessible) {
-            if (!p_grid.grid[node.y][node.x - 1].seen) {
-                p_grid.grid[node.y][node.x - 1].seen = true;
-                p_grid.grid[node.y][node.x - 1].prev = node;
-                q.push(p_grid.grid[node.y][node.x - 1]);
-            }
-        }
-        // go right
-        if (node.x + 1 < board.x_range && p_grid.grid[node.y][node.x + 1].accessible) {
-            if (!p_grid.grid[node.y][node.x + 1].seen) {
-                p_grid.grid[node.y][node.x + 1].seen = true;
-                p_grid.grid[node.y][node.x + 1].prev = node;
-                q.push(p_grid.grid[node.y][node.x + 1]);
-            }
+
         }
     }
+    // alert("no food");
     // if exiting here, then no accessible food is found
     // simply move to the last node
     while (node.prev != null) {
         this.path.push([node.x - node.prev.x, node.y - node.prev.y]);
         node = node.prev;
     }
+    return self;
 }
 
 // moves snake and updates board
@@ -424,9 +618,8 @@ Snake.prototype.move = function (board) {
 
 Snake.prototype.draw = function () {
     ctx.fillStyle = this.colour;
-    ctx.fillStyle = "#F0ED21";
+    //ctx.fillStyle = "#F0ED21";
     var cur_seg = this.head;
-
 
     while (cur_seg != null) {
         ctx.beginPath();
@@ -449,9 +642,19 @@ Snake.prototype.printScore = function (ind) {
 
     var txt = "Player " + String(ind) + ": " + String(this.length);
     ctx.fillText(txt, canvas.width - 100, canvas.height - (100 - 15 * (ind)));
+};
+
+var printArr = function (arr){
+    ctx.fillStyle = "#FF6F50";
+    ctx.font = "8px Arial";
+    for (i = 0; i < arr.length; i++) {
+        for (j = 0; j < arr[i].length; j++) {
+            var txt = arr[i][j];
+
+            ctx.fillText(txt, 2 * j * 7.5 + 7.5, 2 * i * 7.5 + 7.5);
+        }
+    }
 }
-
-
 
 var startGame = function (num_snake, num_food) {
     var sg = new SnakeGame(num_snake);
@@ -461,9 +664,9 @@ var startGame = function (num_snake, num_food) {
     var snake_arr = new Array(num_snake);
     var food_arr = new Array(num_food);
     for (i = 0; i < num_snake; i++) {
-        s = new Snake(i % 5, b);
-        if (i > 0)
-            s.is_ai = true;
+        s = new Snake(i % 5, b, true);
+        // if (i > 0)
+        //     s.is_ai = true;
         // s.printBody();
         snake_arr[i] = s;
     }
@@ -497,13 +700,25 @@ var startGame = function (num_snake, num_food) {
 
                         // If the snake is an ai, and it is time to choose a pth, do so
                         if (cur_snake.is_ai && cur_snake.delay_counter % cur_snake.path_delay == 0) {
-                            //alert("reached");
-                            cur_snake.ai_pathfind_bfs(b);
-                            //alert(cur_snake);
+                            var food_pos = cur_snake.FindFood(food_arr);
+                            //alert("food pos done");
+                            var came_from = cur_snake.ai_pathfind_a(b, [cur_snake.head.posx, cur_snake.head.posy], food_pos);
+                            
+                            //printArr(came_from);
+
+                            var path = cur_snake.ReconstructPath(came_from, food_pos);
+
+                            cur_snake.PathToDirection(path);
+                            // bfs path search
+                            // cur_snake.ai_pathfind_bfs(b);
                         }
 
-                        if (cur_snake.is_ai && cur_snake.path.length != 0)
+                        if (cur_snake.is_ai && cur_snake.path.length != 0) {
                             cur_snake.dir = cur_snake.path.pop();
+                        }
+                        else {
+                            cur_snake.dir = [0, 1];
+                        }
 
                         // The coordinate of the snake's head after the snake's movement
                         var next_x = cur_snake.head.posx + cur_snake.dir[0];
@@ -534,7 +749,6 @@ var startGame = function (num_snake, num_food) {
                         else if (cur_snake.hitObject(b, 'food', next_x, next_y)) {//(cur_snake.hitObject(b, 'food', next_x, next_y)){
                             for (j = 0; j < food_arr.length; j++) {
                                 if (food_arr[j].posx == next_x && food_arr[j].posy == next_y) {
-                                    // alert("touch");
                                     // create new food, and change the board array within constructor
                                     cur_snake.addBody(food_arr[j].posx, food_arr[j].posy, b);
                                     food_arr[j] = new Food(b);
@@ -542,8 +756,14 @@ var startGame = function (num_snake, num_food) {
                             }
 
                             // If the snake is an AI, pathfind again
-                            if (cur_snake.is_ai)
-                                cur_snake.ai_pathfind_bfs(b);
+                            if (cur_snake.is_ai) {
+                                var food_pos = cur_snake.FindFood(food_arr);
+                                var came_from = cur_snake.ai_pathfind_a(b, [this.head.posx, this.head.posy], food_pos);
+                                var path = cur_snake.ReconstructPath(came_from, food_pos);
+                                cur_snake.PathToDirection(path);
+                                // bfs ai
+                                // cur_snake.ai_pathfind_bfs(b);
+                            }
                         }
                         // Only move if the snake's movement will not cause any collisions
                         else if (cur_snake.hitObject(b, 'snake', next_x, next_y)) {
@@ -576,9 +796,9 @@ var startGame = function (num_snake, num_food) {
                 }
 
                 // b.debugArr();
-            }, 1000 / 7.5);
+            }, 1000 / 10);
         }
     });
 };
 
-startGame(2, 50);
+startGame(1, 1);
