@@ -24,7 +24,7 @@
 
 // BUG:
 //      End screen not displaying when no more human players
-//      A* search does not do the last step of actually eating the food
+//      A* search suicides sometimes
 
 
 // Optimization:
