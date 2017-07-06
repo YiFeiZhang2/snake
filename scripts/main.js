@@ -772,7 +772,6 @@ var startGame = function (num_snake, num_food) {
 
                     //cur_snake.printScore(i);
                     cur_snake.draw();
-                    
                 }
                 for (i = 0; i < food_arr.length; i++) {
                     food_arr[i].draw();
