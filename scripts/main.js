@@ -6,6 +6,7 @@
 //      AI movement (machine learning)
 //      Second human player
 //      Put in a time limit on AI path finding time
+//      Clean up code
 
 
 // Weird stuff:
@@ -25,7 +26,8 @@
 // BUG:
 //      End screen not displaying when no more human players
 //      A* search suicides sometimes
-//      A* doesn't go towards the closest
+//      A* does crashes when there is no food
+//      A* crashes when there is food, but it not able to reach it
 
 
 // Optimization:
@@ -367,10 +369,10 @@ function Snake(colour_ind, board, is_ai = false) {
     this.head = this.createHead(board);
     this.tail;
 
-    this.delay_counter = 0;
+    this.target;                        // target food coordinates [x, y];
     this.path = [];                     // path to follow - will be in reverse order
-    this.path_delay = 1;                // delay in number of frames before finding a new path
-    this.choose_delay = 0;              // number of moves before the 'closest food' is recalculated for the ai snake
+    this.path_delay = 10;                // delay in number of frames before finding a new path
+    this.delay_counter = Math.floor(Math.random() * this.path_delay);
 
     this.is_ai = is_ai;
     if (!this.is_ai) {
@@ -472,16 +474,10 @@ Snake.prototype.ai_pathfind_a = function (board, start, goal) {
     var came_from = [];
     for (i = 0; i < this.y_range; i++){
         came_from[i] = [];
-        for(j = 0; j < this.x_range; j++){
-            came_from[i][j] = undefined;
-        }
     }
     var cost_so_far = [];
     for (i = 0; i < this.y_range; i++){
         cost_so_far[i] = [];
-        for (j = 0; j < this.x_range; j++){
-            cost_so_far[i][j] = undefined;
-        }
     }
 
     came_from[start[1]][start[0]] = null;
@@ -522,21 +518,14 @@ Snake.prototype.ai_pathfind_a = function (board, start, goal) {
 // destination is a [x, y] coordinate
 Snake.prototype.ReconstructPath = function (came_from, destination) {
     var path = [];
-    path.push(destination);
-    var cur = destination
-    while (came_from[cur[1]][cur[0]] != null) {
-        path.push(came_from[cur[1]][cur[0]]);
-        cur = came_from[cur[1]][cur[0]];
+    var cur = destination;
+    var prev = came_from[cur[1]][cur[0]];
+    while (prev != null) {
+        path.push([cur[0] - prev[0], cur[1] - prev[1]])
+        cur = prev;
+        prev = came_from[cur[1]][cur[0]];
     }
-    return path;
-}
-
-// destination is a [x, y] coordinate
-Snake.prototype.PathToDirection = function (path) {
-    this.path = [];
-    for (i = 1; i < path.length; i++) {
-        this.path.push([path[i-1][0] - path[i][0], path[i-1][1] - path[i][1]]);
-    }
+    this.path = path;
 }
 
 // calculates the snake's direction using BFS
@@ -662,8 +651,6 @@ var printArr = function (arr){
 }
 
 var startGame = function (num_snake, num_food) {
-    var csf;
-
     var sg = new SnakeGame(num_snake);
 
     alert("x and y ranges are " + sg.x_range + " " + sg.y_range);
@@ -672,9 +659,8 @@ var startGame = function (num_snake, num_food) {
     var food_arr = new Array(num_food);
     for (i = 0; i < num_snake; i++) {
         s = new Snake(i % 5, b, true);
-        // if (i > 0)
-        //     s.is_ai = true;
-        // s.printBody();
+        if (i > 0)
+            s.is_ai = true;
         snake_arr[i] = s;
     }
     for (i = 0; i < num_food; i++) {
@@ -685,6 +671,9 @@ var startGame = function (num_snake, num_food) {
     b.draw();
     sg.drawStartWords();
 
+    var cur_snake;
+    var csf;
+
     canvas.addEventListener("click", function (event) {
         if (canvas.interval) {
             clearInterval(canvas.interval);
@@ -693,12 +682,12 @@ var startGame = function (num_snake, num_food) {
             canvas.interval = setInterval(function () {
                 if (sg.num_alive == 0) {
                     //sg.drawEndWords();
+                    alert("Everything is dead");
                     clearInterval(canvas.interval);
                     canvas.interval = null;
                     return;
                 }
                 b.draw();
-                var cur_snake;
 
                 //take player input and move player snakes
                 //calculate the ai's movements
@@ -709,32 +698,23 @@ var startGame = function (num_snake, num_food) {
 
                 for (i = 0; i < snake_arr.length; i++) {
                     cur_snake = snake_arr[i];
+                    var a_output;
                     if ( cur_snake.is_alive) { 
 
                         // If the snake is an ai, and it is time to choose a pth, do so
                         if (cur_snake.is_ai && cur_snake.delay_counter % cur_snake.path_delay == 0) {
-                            var food_pos = cur_snake.FindFood(food_arr);
-                            var came_from = cur_snake.ai_pathfind_a(b, [cur_snake.head.posx, cur_snake.head.posy], food_pos).cf;
+                            this.target = cur_snake.FindFood(food_arr);
+                            a_output = cur_snake.ai_pathfind_a(b, [cur_snake.head.posx, cur_snake.head.posy], this.target);
                             
-                            csf = cur_snake.ai_pathfind_a(b, [cur_snake.head.posx, cur_snake.head.posy], food_pos).csf;
-                            
-                            //printArr(came_from);
+                            csf = a_output.csf;
 
-                            var path = cur_snake.ReconstructPath(came_from, food_pos);
-
-                            // alert(Math.abs(food_pos[0]- cur_snake.head.posx) + Math.abs(food_pos[1] - cur_snake.head.posy));
-                            // alert(path.length);
-
-                            cur_snake.PathToDirection(path);
+                            cur_snake.ReconstructPath(a_output.cf, this.target);
                             // bfs path search
                             // cur_snake.ai_pathfind_bfs(b);
                         }
 
                         if (cur_snake.is_ai && cur_snake.path.length != 0) {
                             cur_snake.dir = cur_snake.path.pop();
-                        }
-                        else {
-                            cur_snake.dir = [0, 1];
                         }
 
                         // The coordinate of the snake's head after the snake's movement
@@ -745,13 +725,12 @@ var startGame = function (num_snake, num_food) {
                         // then check for food collision, or else may get array out of bounds
                         // from the board_arr
                         if (cur_snake.hitObject(b, 'wall', next_x, next_y)) {
+                            alert("hit wall");
                             cur_snake.is_alive = false;
                             sg.num_alive -= 1;
 
                             if (!cur_snake.is_ai)
                                 sg.alive_hum -= 1;
-                            // kill snake
-                            // if no snakes are left, end game
                         }
                         // Food detection:
                         // If the snake's movement brings it into a 'Food', 
@@ -766,22 +745,20 @@ var startGame = function (num_snake, num_food) {
                             }
 
                             // If the snake is an AI, pathfind again
-                            /*
                             if (cur_snake.is_ai) {
-                                var food_pos = cur_snake.FindFood(food_arr);
-                                var came_from = cur_snake.ai_pathfind_a(b, [this.head.posx, this.head.posy], food_pos).cf;
+                                this.target = cur_snake.FindFood(food_arr);
+                                a_output = cur_snake.ai_pathfind_a(b, [cur_snake.head.posx, cur_snake.head.posy], this.target);
 
-                                csf = cur_snake.ai_pathfind_a(b, [cur_snake.head.posx, cur_snake.head.posy], food_pos).csf;
+                                csf = a_output.csf;
 
-                                var path = cur_snake.ReconstructPath(came_from, food_pos);
-                                cur_snake.PathToDirection(path);
+                                cur_snake.ReconstructPath(a_output.cf, this.target);
                                 // bfs ai
                                 //cur_snake.ai_pathfind_bfs(b);
                             }
-                            */
                         }
                         // Only move if the snake's movement will not cause any collisions
                         else if (cur_snake.hitObject(b, 'snake', next_x, next_y)) {
+                            alert("hit snake");
                             cur_snake.is_alive = false;
                             sg.num_alive -= 1;
 
@@ -799,15 +776,16 @@ var startGame = function (num_snake, num_food) {
 
                     //cur_snake.printScore(i);
                     cur_snake.draw();
+                    
                 }
                 for (i = 0; i < food_arr.length; i++) {
                     food_arr[i].draw();
                 }
-                printArr(csf);
                 // b.debugArr();
+                printArr(csf);
             }, 1000 / 10);
         }
     });
 };
 
-startGame(1, 10);
+startGame(1, 1);
