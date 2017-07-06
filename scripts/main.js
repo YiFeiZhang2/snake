@@ -27,7 +27,11 @@
 //      End screen not displaying when no more human players
 //      A* search suicides sometimes
 //      A* does crashes when there is no food
-//      A* crashes when there is food, but it not able to reach it
+//      The following issues are caused when the ai's current movement causes it to crash into an obstacle the next turn
+//          and it is simultaneously calculating a path. The AI's direction does not seem to be updated fast enough, 
+//          and so will crash into the object (snake or wall) and die.
+//          - A* crashes when there is food, but it not able to reach it
+//          - AI can suicide agaisnt bottom wall before it has chance to pathfind
 
 
 // Optimization:
@@ -224,35 +228,27 @@ function PQueue() {
     this.size = 0;
     this.queue = [];
 };
-
-
 PQueue.prototype.isEmpty = function () {
     return (this.size == 0);
 };
-
-
-
 PQueue.prototype.GetParent = function (index) {
     if (index != 0)
         return Math.ceil(index/2) - 1;
     else
         return index;
 };
-
 PQueue.prototype.GetLeft = function (index) {
     if (2*index + 1 < this.size)
         return 2*index + 1;
     else
         return index;
 };
-
 PQueue.prototype.GetRight = function (index) {
     if (2*index + 2 < this.size)
         return 2*index + 2;
     else
         return index;
 };
-
 PQueue.prototype.BubbleUp = function (index) {
     if (index === 0)
         return;
@@ -267,20 +263,17 @@ PQueue.prototype.BubbleUp = function (index) {
         return;
     }
 
-}
-
+};
 PQueue.prototype.Insert = function (node, value) {
     this.size += 1;
     this.queue.push(new Node(node, value));
     this.BubbleUp(this.size - 1);
-}
-
+};
 PQueue.prototype.Swap = function (self, target) {
     var temp = this.queue[self];
     this.queue[self] = this.queue[target];
     this.queue[target] = temp;
 };
-
 PQueue.prototype.Heapify = function (ind) {
     while (true) {
         var left_ind = this.GetLeft(ind),
@@ -300,8 +293,7 @@ PQueue.prototype.Heapify = function (ind) {
         ind = min_ind;
     }
 };
-
-PQueue.prototype.DeleteMin = function () {
+PQueue.prototype.DeleteMin= function () {
     if (this.size == 0){
         alert("Error: Attempted to delete from empty queue");
         return null;
@@ -313,7 +305,6 @@ PQueue.prototype.DeleteMin = function () {
     this.Heapify(0);
     return min;
 };
-
 
 // Food - subclass - new Food also updates board array
 function Food(board) {
@@ -500,7 +491,7 @@ Snake.prototype.ai_pathfind_a = function (board, start, goal) {
 
             if (cost_so_far[n_coord[1]][n_coord[0]] == undefined || new_cost < cost_so_far[n_coord[1]][n_coord[0]]){
                 cost_so_far[n_coord[1]][n_coord[0]] = new_cost;
-                var priority = new_cost + heuristic (goal, n_coord);
+                var priority = new_cost + 1.5 * heuristic (goal, n_coord);
                 frontier.Insert(n_coord, priority);
                 came_from[n_coord[1]][n_coord[0]] = [current.g_node[0], current.g_node[1]];
             }
@@ -682,6 +673,7 @@ var startGame = function (num_snake, num_food) {
             canvas.interval = setInterval(function () {
                 if (sg.num_alive == 0) {
                     //sg.drawEndWords();
+                    console.log("everything is dead");
                     alert("Everything is dead");
                     clearInterval(canvas.interval);
                     canvas.interval = null;
@@ -704,7 +696,9 @@ var startGame = function (num_snake, num_food) {
                         // If the snake is an ai, and it is time to choose a pth, do so
                         if (cur_snake.is_ai && cur_snake.delay_counter % cur_snake.path_delay == 0) {
                             this.target = cur_snake.FindFood(food_arr);
+                            console.log("planing " + this.target);
                             a_output = cur_snake.ai_pathfind_a(b, [cur_snake.head.posx, cur_snake.head.posy], this.target);
+                            console.log("finished planning");
                             
                             csf = a_output.csf;
 
@@ -747,7 +741,9 @@ var startGame = function (num_snake, num_food) {
                             // If the snake is an AI, pathfind again
                             if (cur_snake.is_ai) {
                                 this.target = cur_snake.FindFood(food_arr);
+                                console.log("planing " + this.target);
                                 a_output = cur_snake.ai_pathfind_a(b, [cur_snake.head.posx, cur_snake.head.posy], this.target);
+                                console.log("finished planning");
 
                                 csf = a_output.csf;
 
@@ -783,7 +779,7 @@ var startGame = function (num_snake, num_food) {
                 }
                 // b.debugArr();
                 printArr(csf);
-            }, 1000 / 10);
+            }, 1000 / 30);
         }
     });
 };
