@@ -15,12 +15,8 @@
 //      AI snakes other than the first also flicker, but not the human one
 //      Bad stuff happens when AI snake does not find any food
 //      Replacing 'n_coord' with 'next' in the bfs_ai causes snake to only go down and right
-//      In A*, to compare the current.g_node == goal doesnt work
-//          but current.g_node[0] == goal[0] && current.g_node[1] == goal[1] does??
-
 
 // BUG:
-//      End screen not displaying when no more human players
 //      A* search suicides sometimes
 //      A* does crashes when there is no food
 //      The following issues are caused when the ai's current movement causes it to crash into an obstacle the next turn
@@ -31,7 +27,6 @@
 
 
 // Optimization:
-//      Queue used in bfs pathfinding is currently an array - can be faster
 //      Also, in bfs, could check whether node is food or not before adding to queue, instead of after
 //      Snake is double linked list - can use single linked list
 //          Will have to change the movement function
@@ -355,6 +350,7 @@ function Snake(colour_ind, board, is_ai = false) {
     this.length = 0;
     this.head = this.createHead(board);
     this.tail;
+    this.hit = 'unhit';
 
     this.target;                        // target food coordinates [x, y];
     this.path = [];                     // path to follow - will be in reverse order
@@ -422,19 +418,24 @@ Snake.prototype.createHead = function (board) {
 
 // adds a segment to the end of the snake with specified posx and posy
 // also updates the board array to reflect that
-Snake.prototype.addBody = function (posx, posy, board) {
-    var body = new BodySegment(posx, posy, null, this.head);
+Snake.prototype.addTail = function (posx, posy, board) {
+    var body = new BodySegment(posx, posy, null, null);
+    //alert('initial');
     if (this.length == 1) {
-        this.head.prev = body;
-        this.tail = this.head;
-        this.head = body;
+        this.head.next = body;
+        this.tail = body;
+        body.prev = this.head;
     }
     else {
-        this.head.prev = body;
-        this.head = body;
+        body.prev = this.tail;
+        this.tail.next = body;
+        this.tail = body;
+
     }
-    board.board_arr[this.head.posy][this.head.posx] = 2;
+    //alert('middle');
+    board.board_arr[posy][posx] = 2;
     this.length += 1;
+    //alert('end');
 }
 
 // finds closest food and returns coordinates
@@ -597,8 +598,9 @@ Snake.prototype.move = function (board) {
 
 Snake.prototype.draw = function () {
     ctx.fillStyle = this.colour;
-    //ctx.fillStyle = "#F0ED21";
+    
     var cur_seg = this.head;
+    ctx.fillStyle = "#F0ED21";
 
     while (cur_seg != null) {
         ctx.beginPath();
@@ -613,17 +615,66 @@ Snake.prototype.draw = function () {
     }
 };
 
+Snake.prototype.resolveHit = function(self, board, food_arr){
+    if (this.hit == 'wall' || this.hit == 'snake'){
+        console.log("hit " + this.hit);
+        this.is_alive = false;
+        self.num_alive -= 1;
+        if (!this.is_ai){
+            self.alive_hum -= 1;
+        }
+    } else if (this.hit == 'food'){
+        var x = this.length == 1? this.head.posx : this.tail.posx;
+        var y = this.length == 1? this.head.posy : this.tail.posy;
+        this.move(board);
+        this.addTail(x, y, board);
+        
+        for (j = 0; j < food_arr.length; j++) {
+            if (food_arr[j].posx == this.head.posx && food_arr[j].posy == this.head.posy) {
+                food_arr[j] = new Food(board);
+            }
+        }
+        
+        // If the snake is an AI, pathfind again
+        if (this.is_ai) {
+            this.delay_counter = 0;
+        }
+    } else{
+        this.move(board);
+    }
+}
+
+Snake.prototype.anyHit = function(next_x, next_y, board){
+    // Wall detection
+    if (this.hitObject(board, 'wall', next_x, next_y)) {
+        this.hit = 'wall';
+    }
+    // Food detection:
+    // If the snake's movement brings it into a 'Food', 
+    // instead of moving the snake, add a new snake body ontop of the Food, and make a new Food.
+    else if (this.hitObject(board, 'food', next_x, next_y)) {
+        this.hit = 'food';
+    }
+    // Only move if the snake's movement will not cause any collisions
+    else if (this.hitObject(board, 'snake', next_x, next_y)) {
+        this.hit = 'snake';
+    } else {
+        this.hit = 'unhit';
+    }
+}
+
 Snake.prototype.printScore = function (ind) {
     ctx.fillStyle = "#ffffff";
     ctx.font = "20px Arial";
     ctx.fillText("Score", canvas.width - 100, canvas.height - 120);
     ctx.font = "10px Arial";
 
-    var txt = "Player " + String(ind) + ": " + String(this.length);
-    ctx.fillText(txt, canvas.width - 100, canvas.height - (100 - 15 * (ind)));
+    var txt = "Player " + String(ind + 1) + ": " + String(this.length);
+    //ctx.fillText("FUFDFDF", canvas.width - 100, canvas.height - 120 + 20*ind);//(100 - 15 * (ind)));
+    ctx.fillText(txt, canvas.width - 100, canvas.height - (100 - 20 * (ind)));
 };
 
-var printArr = function (arr){
+var printCSF = function (arr){
     ctx.fillStyle = "#FF6F50";
     ctx.font = "8px Arial";
     for (i = 0; i < arr.length; i++) {
@@ -637,26 +688,98 @@ var printArr = function (arr){
     }
 }
 
+SnakeGame.prototype.createType = function (num, board, type) {
+    var type_arr = new Array(num);
+    for (i = 0; i < num; i++) {
+        switch (type){
+            case ('snake'):
+                if (i > 0){
+                    o = new Snake(i % 5, board, true);
+                } else {
+                    o = new Snake(i % 5, board, false);
+                    //o = new Snake(i % 5, board, true);
+                }
+                break;
+            case ('food'):
+                o = new Food(board);
+                break;
+            default:
+                console.log('Wrong type input to createType');
+                break;
+        }
+        type_arr[i] = o;
+    }
+    return type_arr;
+}
+
+SnakeGame.prototype.runFrame = function (board, snake_arr, food_arr, self){
+    board.draw();
+    if (self.alive_hum == 0) {
+        self.drawEndWords();
+        console.log("game over");
+        clearInterval(canvas.interval);
+        canvas.interval = null;
+        canvas.removeEventListener("click", start);
+        return;
+    }
+
+    //take player input and move player snakes
+    //calculate the ai's movements
+    //update the snake's positions according to movements - include growing and removing food
+    //draw everything
+    //write the score
+    for (var i = 0; i < snake_arr.length; i++) {
+        cur_snake = snake_arr[i];
+        var a_output;
+        if (cur_snake.is_alive) { 
+            
+            // If the snake is an ai, and it is time to choose a path, do so
+            if (cur_snake.is_ai){
+                if (cur_snake.delay_counter == 0) {
+                    cur_snake.target = cur_snake.FindFood(food_arr);
+                    //console.log("planing " + cur_snake.target);
+                    a_output = cur_snake.ai_pathfind_a(board, [cur_snake.head.posx, cur_snake.head.posy], cur_snake.target);
+                    //console.log("finished planning");
+                    csf = a_output.csf;
+                    cur_snake.ReconstructPath(a_output.cf, cur_snake.target);
+                    // bfs path search
+                    // cur_snake.ai_pathfind_bfs(b);
+                }
+                // decrease delay counter (via adding and later moduloing)
+                cur_snake.delay_counter += 1;
+                cur_snake.delay_counter = cur_snake.delay_counter % cur_snake.path_delay; 
+            }
+            // gets direction for snake to move
+            if (cur_snake.is_ai && cur_snake.path.length != 0) {
+                cur_snake.dir = cur_snake.path.pop();
+            }
+            // The coordinate of the snake's head after the snake's movement
+            var next_x = cur_snake.head.posx + cur_snake.dir[0];
+            var next_y = cur_snake.head.posy + cur_snake.dir[1];
+            // Check whether snake head's position after movement is within bounds first
+            // then check for food collision
+            cur_snake.anyHit(next_x, next_y, board, food_arr, self);
+            cur_snake.resolveHit(self, board, food_arr);
+        }
+        cur_snake.printScore(i);
+        cur_snake.draw();
+    }
+    for (i = 0; i < food_arr.length; i++) {
+        food_arr[i].draw();
+    }
+    //board.debugArr();
+
+    // for debugging the AI
+    //printCSF(csf);
+}
+
 SnakeGame.prototype.startGame = function (num_snake, num_food) {
     var self = this;
-    var b = new Board();
-    var snake_arr = new Array(num_snake);
-    var food_arr = new Array(num_food);
-    for (i = 0; i < num_snake; i++) {
-        s = new Snake(i % 5, b, false);
-        if (i > 0)
-            s.is_ai = true;
-        snake_arr[i] = s;
-    }
-    for (i = 0; i < num_food; i++) {
-        f = new Food(b);
-        food_arr[i] = f;
-    }
-    b.draw();
-    self.drawStartWords();
-
-    var cur_snake;
-    var csf;
+    var board = new Board();
+    var snake_arr = this.createType(num_snake, board, 'snake');
+    var food_arr = this.createType(num_food, board, 'food');
+    board.draw();
+    this.drawStartWords();
 
     canvas.addEventListener("click", start = function (event) {
         if (canvas.interval != null) {
@@ -664,133 +787,23 @@ SnakeGame.prototype.startGame = function (num_snake, num_food) {
             clearInterval(canvas.interval);
             canvas.interval = null;
         } else {
-            canvas.interval = setInterval(function () {
-                console.log('resume');
-                if (self.alive_hum == 0) {
-                    self.drawEndWords();
-                    console.log("game over");
-                    clearInterval(canvas.interval);
-                    canvas.interval = null;
-                    canvas.removeEventListener("click", start);
-                    return;
-                }
-                b.draw();
-
-                //take player input and move player snakes
-                //calculate the ai's movements
-                //update the snake's positions according to movements - include growing and removing food
-                //draw everything
-                //write the score
-
-                for (i = 0; i < snake_arr.length; i++) {
-                    cur_snake = snake_arr[i];
-                    var a_output;
-                    if ( cur_snake.is_alive) { 
-
-                        // If the snake is an ai, and it is time to choose a pth, do so
-                        if (cur_snake.is_ai && cur_snake.delay_counter % cur_snake.path_delay == 0) {
-                            cur_snake.target = cur_snake.FindFood(food_arr);
-                            console.log("planing " + cur_snake.target);
-                            a_output = cur_snake.ai_pathfind_a(b, [cur_snake.head.posx, cur_snake.head.posy], cur_snake.target);
-                            console.log("finished planning");
-                            
-                            csf = a_output.csf;
-
-                            cur_snake.ReconstructPath(a_output.cf, cur_snake.target);
-                            
-                            // bfs path search
-                            // cur_snake.ai_pathfind_bfs(b);
-                        }
-
-                        if (cur_snake.is_ai && cur_snake.path.length != 0) {
-                            cur_snake.dir = cur_snake.path.pop();
-                        }
-
-                        // The coordinate of the snake's head after the snake's movement
-                        var next_x = cur_snake.head.posx + cur_snake.dir[0];
-                        var next_y = cur_snake.head.posy + cur_snake.dir[1];
-
-                        // Check whether snake head's position after movement is within bounds first
-                        // then check for food collision, or else may get array out of bounds
-                        // from the board_arr
-                        if (cur_snake.hitObject(b, 'wall', next_x, next_y)) {
-                            console.log("hit wall");
-                            cur_snake.is_alive = false;
-                            self.num_alive -= 1;
-
-                            if (!cur_snake.is_ai)
-                                self.alive_hum -= 1;
-                        }
-                        // Food detection:
-                        // If the snake's movement brings it into a 'Food', 
-                        // instead of moving the snake, add a new snake body ontop of the Food, and make a new Food.
-                        else if (cur_snake.hitObject(b, 'food', next_x, next_y)) {//(cur_snake.hitObject(b, 'food', next_x, next_y)){
-                            for (j = 0; j < food_arr.length; j++) {
-                                if (food_arr[j].posx == next_x && food_arr[j].posy == next_y) {
-                                    // create new food, and change the board array within constructor
-                                    cur_snake.addBody(food_arr[j].posx, food_arr[j].posy, b);
-                                    food_arr[j] = new Food(b);
-                                }
-                            }
-
-                            // If the snake is an AI, pathfind again
-                            if (cur_snake.is_ai) {
-                                cur_snake.target = cur_snake.FindFood(food_arr);
-                                console.log("planing " + cur_snake.target);
-                                a_output = cur_snake.ai_pathfind_a(b, [cur_snake.head.posx, cur_snake.head.posy], cur_snake.target);
-                                console.log("finished planning");
-
-                                csf = a_output.csf;
-
-                                cur_snake.ReconstructPath(a_output.cf, cur_snake.target);
-                                cur_snake.dir = cur_snake.path.pop();
-                                
-                                // bfs ai
-                                // cur_snake.ai_pathfind_bfs(b);
-                            }
-                        }
-                        // Only move if the snake's movement will not cause any collisions
-                        else if (cur_snake.hitObject(b, 'snake', next_x, next_y)) {
-                            console.log("hit snake");
-                            cur_snake.is_alive = false;
-                            self.num_alive -= 1;
-
-                            if (!cur_snake.is_ai)
-                                self.alive_hum -= 1;
-                        }
-                        else {
-                            cur_snake.move(b);
-                        }
-
-                        // decrease delay counter (via adding and later moduloing)
-                        if (cur_snake.is_ai)
-                            cur_snake.delay_counter += 1;
-                    }
-
-                    //cur_snake.printScore(i);
-                    cur_snake.draw();
-                }
-                for (i = 0; i < food_arr.length; i++) {
-                    food_arr[i].draw();
-                }
-                // b.debugArr();
-
-                // for debugging the AI
-                // printArr(csf);
-            }, 1000 / 10);
+            console.log('resume');
+            canvas.interval = setInterval(function() {SnakeGame.prototype.runFrame(board, snake_arr, food_arr, self)}, 1000 / 10);
         }
     });
 };
 
-var sg = new SnakeGame(2);
-sg.startGame(2, 10);
+var num_snakes = 2;
+
+var sg = new SnakeGame(num_snakes);
+sg.startGame(num_snakes, 10);
 
 canvas.addEventListener('keydown', function (event) {
     if (event.keyCode == 82){
         clearInterval(canvas.interval);
         canvas.interval = null;
         canvas.removeEventListener("click", start);
-        var sg = new SnakeGame(2);
-        sg.startGame(2, 10);
+        var sg = new SnakeGame(num_snakes);
+        sg.startGame(num_snakes, 10);
     }
 })
